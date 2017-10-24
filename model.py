@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from torch.nn import Parameter
+from torch.autograd import Variable
 
 
 def embed_question(question, embed_layer, position_encoding):
@@ -9,15 +10,23 @@ def embed_question(question, embed_layer, position_encoding):
 
     question_emb = question_emb * position_encoding
 
-    return question_emb.sum()
+    return question_emb.sum(1)
 
 
 def embed_evidence(evidence, question_embed_layer, evidence_embed_layer, position_encoding):
-    evidence_for_computation = question_embed_layer(evidence)
-    evidence_for_computation = evidence_for_computation * position_encoding
+    expanded_evidence = evidence.view(-1, evidence.size(2))  # combine batch and sentence dimensions
 
-    evidence_features = evidence_embed_layer(evidence)
+    evidence_for_computation = question_embed_layer(expanded_evidence)
+    evidence_for_computation = evidence_for_computation * position_encoding
+    evidence_for_computation = evidence_for_computation.sum(1)
+    evidence_for_computation = evidence_for_computation.view(-1, evidence.size(1), position_encoding.size(2))
+    # batch X sentences X embedding_size
+
+    evidence_features = evidence_embed_layer(expanded_evidence)
     evidence_features = evidence_features * position_encoding
+    evidence_features = evidence_features.sum(1)
+    evidence_features = evidence_features.view(-1, evidence.size(1), position_encoding.size(2))
+    # batch X sentences X embedding_size
 
     return evidence_features, evidence_for_computation
 
@@ -31,28 +40,28 @@ def get_position_encoding(words_in_sentence, text_latent_size):
             encoding[i, j] = (1-i/words_in_sentence) - (j/text_latent_size)*(1-(2*i)/words_in_sentence)
 
     encoding = torch.from_numpy(encoding)
-    return encoding.unsqueeze(0)
+    return Variable(encoding.unsqueeze(0))
 
 '''
  Args:
-     x: [N * k]
-     q: [1 * k] where k is the dimension of the text's latent representation
+     e: [N * s * d]
+     q: [N * d] where s is the # sentences, d is the dimension of the text's latent representation
 
  Return:
-     - [1* N] weight probabilities
+     - [N * s] weight probabilities
  '''
 
 
 def compute_evidence_weights(e, q):
-    z = e.matmul(q.transpose(0, 1))
-    z = z.view(1, z.size(0))
-    m = nn.Softmax()
-    return m(z)
+    z = e.bmm(q.unsqueeze(2)).squeeze(2)
+    softmax = nn.Softmax()
+    z = softmax(z)
+    return z
 
 ''' mean pools evidence items
  Args:
-     x: [N* l]
-     weights: [1 * N]
+     x: [N * s * d]
+     weights: [N * s]
 
  Return:
      - same as x but each item x_i is weighted by w_i
@@ -60,9 +69,8 @@ def compute_evidence_weights(e, q):
 
 
 def mean_pool(x, weights):
-    weights = weights.view(weights.size(1), 1)
-    z = weights*x
-    z = z.sum(0)
+    z = x*weights.unsqueeze(2)
+    z = z.sum(1)
     return z
 
 '''Predict the final answer
@@ -79,16 +87,10 @@ class final_prediction(nn.Module):
     def __init__(self, text_latent_size, output_size):
         super(final_prediction, self).__init__()
 
-        # hidden_sizes = [500]
-        # self.fc1 = nn.Linear(text_latent_size, hidden_sizes[0])
-        # self.prelu1 = nn.PReLU()
-        # self.fc2 = nn.Linear(hidden_sizes[0], output_size)
         self.fc1 = nn.Linear(text_latent_size, output_size)
         self.softmax = nn.Softmax()
 
     def forward(self, x):
-        # z = self.fc1(x)
-        # z = self.prelu1(z)
         z = self.fc1(x)
         z = self.softmax(z)  # not sure if you need to softmax before cross-entropy loss
         return z
