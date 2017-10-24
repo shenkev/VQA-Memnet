@@ -40,7 +40,7 @@ def load_data(task, batch_size, dataset_dir='./bAbI/data/tasks_1-20_v1-2/en/'):
     print("Average story length", train_data.mean_story_size)
     print("Number of vocab", train_data.num_vocab)
 
-    return train_loader, test_loader
+    return train_loader, test_loader, train_data.num_vocab, train_data.max_story_size, train_data.sentence_size
 
 
 def to_var(x):
@@ -74,8 +74,6 @@ def step(net, optimizer, criterion, evidence, question, answer):
 
 def train(epochs, data_loader, net, optimizer, criterion):
     for epoch in range(epochs):
-        # Reset data_iter
-        data_iter = iter(data_loader)
 
         for i, (evidence, question, answer) in enumerate(data_loader):
             evidence = to_var(evidence)
@@ -96,15 +94,11 @@ if __name__ == "__main__":
 
     weight_path = './Model/vqamemnet.pkl'
 
-    # net = load_model(evidence_size, question_size, text_latent_size, output_size)
-    # criterion = nn.CrossEntropyLoss()
-    # optimizer = torch.optim.Adam(net.parameters(), lr=learn_rate)
+    train_loader, test_loader, vocabulary_size, num_of_evidences, words_in_sentence = load_data(task, batch_size)
 
-    train_loader, test_loader = load_data(task, batch_size)
-    for i, (evidence, question, answer) in enumerate(train_loader):
-        evidence = to_var(evidence)
-        question = to_var(question)
-        answer = to_var(answer)
+    net = load_model(vocabulary_size, text_latent_size, num_of_evidences, words_in_sentence)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(net.parameters(), lr=learn_rate)
 
-    # train(epochs, train_loader, net, optimizer, criterion)
+    train(epochs, train_loader, net, optimizer, criterion)
 

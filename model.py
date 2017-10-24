@@ -1,6 +1,37 @@
 import torch
 import torch.nn as nn
+import numpy as np
+from torch.nn import Parameter
 
+
+def embed_question(question, embed_layer, position_encoding):
+    question_emb = embed_layer(question)
+
+    question_emb = question_emb * position_encoding
+
+    return question_emb.sum()
+
+
+def embed_evidence(evidence, question_embed_layer, evidence_embed_layer, position_encoding):
+    evidence_for_computation = question_embed_layer(evidence)
+    evidence_for_computation = evidence_for_computation * position_encoding
+
+    evidence_features = evidence_embed_layer(evidence)
+    evidence_features = evidence_features * position_encoding
+
+    return evidence_features, evidence_for_computation
+
+
+def get_position_encoding(words_in_sentence, text_latent_size):
+
+    encoding = np.zeros((words_in_sentence, text_latent_size), dtype=np.float32)
+
+    for i in range(0, words_in_sentence):
+        for j in range(0, text_latent_size):
+            encoding[i, j] = (1-i/words_in_sentence) - (j/text_latent_size)*(1-(2*i)/words_in_sentence)
+
+    encoding = torch.from_numpy(encoding)
+    return encoding.unsqueeze(0)
 
 '''
  Args:
@@ -45,18 +76,21 @@ def mean_pool(x, weights):
 
 class final_prediction(nn.Module):
 
-    def __init__(self, evidence_size, question_latent_size, output_size):
+    def __init__(self, text_latent_size, output_size):
         super(final_prediction, self).__init__()
 
-        hidden_sizes = [500]
-        self.fc1 = nn.Linear(evidence_size + question_latent_size, hidden_sizes[0])
-        self.prelu1 = nn.PReLU()
-        self.fc2 = nn.Linear(hidden_sizes[0], output_size)
+        # hidden_sizes = [500]
+        # self.fc1 = nn.Linear(text_latent_size, hidden_sizes[0])
+        # self.prelu1 = nn.PReLU()
+        # self.fc2 = nn.Linear(hidden_sizes[0], output_size)
+        self.fc1 = nn.Linear(text_latent_size, output_size)
+        self.softmax = nn.Softmax()
 
     def forward(self, x):
+        # z = self.fc1(x)
+        # z = self.prelu1(z)
         z = self.fc1(x)
-        z = self.prelu1(z)
-        z = self.fc2(z)
+        z = self.softmax(z)  # not sure if you need to softmax before cross-entropy loss
         return z
 
 '''
@@ -71,22 +105,31 @@ class final_prediction(nn.Module):
 
 class vqa_memnet(nn.Module):
 
-    def __init__(self, evidence_size, question_size, text_latent_size, output_size):
+    def __init__(self, vocabulary_size, text_latent_size, num_of_evidences, words_in_question):
         super(vqa_memnet, self).__init__()
 
-        self.evidence_emb = nn.Linear(evidence_size, text_latent_size)
-        self.question_emb = nn.Linear(question_size, text_latent_size)
-        self.answer = final_prediction(evidence_size, text_latent_size, output_size)
+        self.position_encoding = get_position_encoding(words_in_question, text_latent_size)
+
+        self.temporal_enc1 = Parameter(torch.Tensor(num_of_evidences, text_latent_size))
+        self.temporal_enc2 = Parameter(torch.Tensor(num_of_evidences, text_latent_size))
+        self.evidence_emb = nn.Embedding(vocabulary_size, text_latent_size)
+        self.question_emb = nn.Embedding(vocabulary_size, text_latent_size)
+        self.answer = final_prediction(text_latent_size, vocabulary_size)
 
     def forward(self, evidence, question):
 
-        z_e = self.evidence_emb(evidence)
-        z_q = self.question_emb(question)
+        question_emb = embed_question(question, self.question_emb, self.position_encoding)
+        evidence_feature_emb, evidence_computation_emb \
+            = embed_evidence(evidence, self.question_emb, self.evidence_emb, self.position_encoding)
 
-        w = compute_evidence_weights(z_e, z_q)
-        weighted_evidence = mean_pool(evidence, w)
+        evidence_feature_emb = evidence_feature_emb + self.temporal_enc1
+        evidence_computation_emb = evidence_computation_emb + self.temporal_enc2
 
-        features = torch.cat((weighted_evidence, z_q.squeeze(0)))
+        weights = compute_evidence_weights(evidence_computation_emb, question_emb)
+        weighted_evidence = mean_pool(evidence_feature_emb, weights)
+
+        # features = torch.cat((weighted_evidence, question_emb.squeeze(0)))
+        features = weighted_evidence + question_emb.squeeze(0)
 
         return self.answer(features)
 
