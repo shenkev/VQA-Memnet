@@ -26,19 +26,15 @@ def process_data(args):
     # random_state = None
     captions, questions, answers, vocab = load_data(args.data_dir, args.is_present_threshold)
 
-    memory_size, sentence_size, vocab_size, word_idx = calculate_parameter_values(captions, questions, args.limit_to_species,
-                                                                                  args.memory_limit, args.sentence_limit,
-                                                                                  vocab)
+    sentence_size, vocab_size, word_idx = calculate_parameter_values(captions, questions, vocab)
+
+    captions_vec, questions_vec, answers_vec = vectorize_data(caption=captions, questions=questions, answers=answers,
+                                                              sentence_size=sentence_size, word_idx=word_idx)
+
+    S, Q, A = generate_s_q_a(questions=questions_vec, answers=answers_vec, limit_to_species=args.limit_to_species)
 
 
-
-
-    #vectorize captions + attributes
-
-
-
-
-    return memory_size, sentence_size, vocab_size, word_idx
+    #return sentence_size, vocab_size, word_idx
 
     # train_set, train_batches, val_set, val_batches, test_set, test_batches = \
     #     vectorize_task_data(args.batch_size, data, args.debug, memory_size,
@@ -87,11 +83,8 @@ def load_captions(captions_dir, ps):
             with open(path_to_file) as f:
                 lines = f.readlines()
             
-            captions = []
             for line in lines:
-                captions.append(ps.strip(line).split())
-
-            species_captions.append(captions)
+                species_captions.append(ps.strip(line).split())
     
         all_captions[species] = species_captions
 
@@ -130,10 +123,7 @@ def generate_questions(class_attributes_dir, attributes, is_present_threshold):
 
         for attribute_id, present_percentage in enumerate(attribute_percentages, 1):
             species_questions.append(attributes[attribute_id])
-            if is_present_threshold <= float(present_percentage):
-                species_answers.append([0,1])
-            else:
-                species_answers.append([1,0])
+            species_answers.append(is_present_threshold <= float(present_percentage))
 
         questions[species] = species_questions
         answers[species] = species_answers
@@ -145,9 +135,8 @@ def get_vocab(captions, questions):
     words = set()
 
     for species, species_captions in captions.items():
-        for image_captions in species_captions:
-            for caption in image_captions:
-                words.update(caption)
+        for caption in species_captions:
+            words.update(caption)
 
     for species, species_questions in questions.items():
         for question in species_questions:
@@ -156,28 +145,16 @@ def get_vocab(captions, questions):
     return sorted(list(words))
 
 
-def calculate_parameter_values(captions, questions, limit_to_species, memory_limit, sentence_limit, vocab):
+def calculate_parameter_values(captions, questions, vocab):
     
     word_idx = dict((c, i + 1) for i, c in enumerate(vocab))
     vocab_size = len(word_idx) + 1
-
-    captions_per_species = [len(v) for k, v in captions.items()]
-    if limit_to_species:
-        memory_size = max(captions_per_species)
-    else:
-        memory_size = sum(captions_per_species)
-
-    if memory_limit:
-        memory_size = min(memory_size, memory_limit)
     
-    sentence_size = max([max([max([len(caption) for caption in image]) for image in species]) for k, species in captions.items()])
-    question_size = max([max([len(question) for question in species]) for k, species in questions.items()])
+    sentence_size = max([max([len(caption) for caption in species_captions]) for species_id, species_captions in captions.items()])
+    question_size = max([max([len(question) for question in species_questions]) for species_id, species_questions in questions.items()])
     sentence_size = max(question_size, sentence_size)
 
-    if sentence_limit:
-        sentence_size = min(sentence_size, sentence_limit)
-
-    return memory_size, sentence_size, vocab_size, word_idx
+    return sentence_size, vocab_size, word_idx
 
 
 # def vectorize_task_data(batch_size, data, debug, memory_size, random_state, sentence_size, test,
@@ -224,51 +201,88 @@ def calculate_parameter_values(captions, questions, limit_to_species, memory_lim
 #            list(test_batches)
 
 
-# def vectorize_data(captions, questions, word_idx, sentence_size, memory_size):
-#     '''
-#     Vectorize stories and queries.
-#     If a sentence length < sentence_size, the sentence will be padded with 0's.
-#     If a story length < memory_size, the story will be padded with empty memories.
-#     Empty memories are 1-D arrays of length sentence_size filled with 0's.
-#     The answer array is returned as a one-hot encoding.
-#     '''
-#     S = []
-#     Q = []
-#     A = []
-#     for story, query, answer in data:
-#         lq = max(0, sentence_size - len(query))
-#         q = [word_idx[w] for w in query] + [0] * lq
+def vectorize_data(captions, questions, answers, sentence_size, word_idx):
 
-#         ss = []
-#         for i, sentence in enumerate(story, 1):
-#             ls = max(0, sentence_size - len(sentence))
-#             ss.append([word_idx[w] for w in sentence] + [0] * ls)
+    # Captions
+    captions_per_species = [len(species_captions) for species_id, species_captions in captions.items()]
+    max_captions_per_species = max(captions_per_species)
+    total_captions = sum(captions_per_species)
 
-#         if len(ss) > memory_size:
+    captions_vec = {}
+    all_captions = []
+    for species_id, species_captions in captions.items():
+        species_captions_vec = []
+        for caption in species_captions:
+            sentence_pad_length = max(0, sentence_size - len(caption))
+            species_captions_vec.append((species_id, [word_idx[w] for w in caption] + [0] * sentence_pad_length))
 
-#             # Use Jaccard similarity to determine the most relevant sentences
-#             q_words = (q)
-#             least_like_q = sorted(ss, key=functools.cmp_to_key(
-#                 lambda x, y: jaccard_similarity_score((x), q_words) < jaccard_similarity_score((y), q_words)))[
-#                            :len(ss) - memory_size]
-#             for sent in least_like_q:
-#                 # Remove the first occurrence of sent. A list comprehension as in [sent for sent in ss if sent not in least_like_q]
-#                 # should not be used, as it would remove multiple occurrences of the same sentence, some of which might actually make the cutoff.
-#                 ss.remove(sent)
-#         else:
-#             # pad to memory_size
-#             lm = max(0, memory_size - len(ss))
-#             for _ in range(lm):
-#                 ss.append([0] * sentence_size)
+        all_captions.extend(species_captions_vec)
 
-#         y = np.zeros(len(word_idx) + 1)  # 0 is reserved for nil word
-#         for a in answer:
-#             y[word_idx[a]] = 1
+        memory_pad_length = max(0, max_captions_per_species - len(species_captions_vec))
+        for _ in range(memory_pad_length):
+            species_captions_vec.append((0, [0] * sentence_size))
 
-#         S.append(ss)
-#         Q.append(q)
-#         A.append(y)
-#     return np.array(S), np.array(Q), np.array(A)
+        captions_vec[species_id] = species_captions_vec
+
+    captions_vec[0] = all_captions
+
+    # Questions
+    questions_vec = {}
+    for species_id, species_questions in questions.items():
+        species_questions_vec = []
+        for question in species_questions:
+            sentence_pad_length = max(0, sentence_size - len(question))
+            species_questions_vec.append((species_id, [word_idx[w] for w in question] + [0] * sentence_pad_length))
+
+        questions_vec[species_id] =  species_questions_vec
+
+    # Answers
+    answers_vec = {}
+    for species_id, species_answers in answers.items():
+        species_answers_vec = []
+        for answer in species_answers:
+            if answer:
+                species_answers_vec.append([0,1])
+            else:
+                species_answers_vec.append([1,0])
+
+        answers_vec[species_id] =  species_answers_vec
+
+    return captions_vec, questions_vec, answers_vec
+
+
+def generate_s_q_a(questions, answers, limit_to_species):
+
+    S = []
+    Q = []
+    A = []
+    for species_id, species_questions in questions.items():
+        for question in species_questions:
+            S.append(species_id)
+            Q.append(question)
+    for species_id, species_answers in answers.items():
+        for answer in species_answers:
+            A.append(answer)
+
+    if not limit_to_species:
+        S = [0] * len(S)
+
+    return S, Q, A
+
+#return np.array(S), np.array(Q), np.array(A)
+
+# Keeping this around since this could be a good way of filtering down our data
+# Would result quite a bit of pre-processing, but still overall not a bad way to go
+# if len(ss) > memory_s
+#     # Use Jaccard similarity to determine the most relevant sentences
+#     q_words = (q)
+#     least_like_q = sorted(ss, key=functools.cmp_to_key(
+#         lambda x, y: jaccard_similarity_score((x), q_words) < jaccard_similarity_score((y), q_words)))[
+#                    :len(ss) - memory_size]
+#     for sent in least_like_q:
+#         # Remove the first occurrence of sent. A list comprehension as in [sent for sent in ss if sent not in least_like_q]
+#         # should not be used, as it would remove multiple occurrences of the same sentence, some of which might actually make the cutoff.
+#         ss.remove(sent)
 
 
 # def generate_batches(batches_tr, batches_v, batches_te, train, val, test):
