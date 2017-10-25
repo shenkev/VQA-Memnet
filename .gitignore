@@ -8,6 +8,15 @@ __pycache__/
 # bAbI dataset
 bAbI/
 
+# birds captions
+birds/captions/
+
+# Example code
+files-from-pytorch-example/
+
+# Saved models
+code/saved/
+
 # C extensions
 *.so
 
