@@ -89,7 +89,7 @@ def step(net, optimizer, criterion, evidence, question, answer, step_num):
     output = net(evidence, question)
     loss = criterion(output, answer)
     loss.backward()
-    # gradient_noise_and_clip(net.parameters())
+    gradient_noise_and_clip(net.parameters())
     optimizer.step()
 
     return loss.data[0]
@@ -132,7 +132,7 @@ def evaluate(net, loader):
 
         output = net(story, query)
         _, output_max_index = torch.max(output, 1)
-        correct += (answer == output_max_index).float().sum()
+        correct += (answer == output_max_index).float().sum()  # really weird, without float() this counter resets to 0
 
     acc = float(correct.data[0]) / len(loader.dataset)
     return acc
@@ -156,4 +156,3 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(net.parameters(), lr=learn_rate)
 
     train(epochs, train_loader, test_loader, net, optimizer, criterion)
-

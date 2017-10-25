@@ -92,15 +92,15 @@ class vqa_memnet(nn.Module):
 
         self.position_encoding = get_position_encoding(words_in_question, text_latent_size)
 
-        self.temporal_enc1 = Parameter(torch.Tensor(num_of_evidences, text_latent_size))
-        self.temporal_enc2 = Parameter(torch.Tensor(num_of_evidences, text_latent_size))
+        # self.temporal_enc1 = Parameter(torch.Tensor(num_of_evidences, text_latent_size))
+        # self.temporal_enc2 = Parameter(torch.Tensor(num_of_evidences, text_latent_size))
         # padding_idx=0 is required or else the 0 words (absence of a word) gets mapped to garbage
         self.evidence_emb = nn.Embedding(vocabulary_size, text_latent_size, padding_idx=0)
         self.question_emb = nn.Embedding(vocabulary_size, text_latent_size, padding_idx=0)
 
         # weight initialization greatly helps convergence
-        self.temporal_enc1.data.normal_(0, 0.1)
-        self.temporal_enc2.data.normal_(0, 0.1)
+        # self.temporal_enc1.data.normal_(0, 0.1)
+        # self.temporal_enc2.data.normal_(0, 0.1)
         self.evidence_emb.weight.data.normal_(0, 0.1)
         self.question_emb.weight.data.normal_(0, 0.1)
 
