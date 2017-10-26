@@ -17,11 +17,10 @@ logging.basicConfig(filename='N2Nexample.log',level=logging.DEBUG)
 def train_network(train_batch_list, val_batch_list, test_batch_list, train, val, test, vocab_size, story_size,
                   save_model_path, args):
     net = N2N(args.batch_size, args.embed_size, vocab_size, args.hops, story_size=story_size)
-    if torch.cuda.is_available() and args.cuda == 1:
+    
+    if torch.cuda.is_available():
         net = net.cuda()
     criterion = torch.nn.CrossEntropyLoss()
-    if args.debug is True:
-        logging.info("TRAINABLE PARAMETERS IN THE NETWORK: ", list(net.parameters()))
 
     optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
     optimizer.zero_grad()
@@ -56,9 +55,6 @@ def train_network(train_batch_list, val_batch_list, test_batch_list, train, val,
                 torch.save(net.state_dict(), save_model_path)
                 best_val_acc_yet = val_acc
 
-        if current_epoch % args.anneal_epoch == 0 and current_epoch != 0:
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = param_group['lr'] / args.anneal_factor
         running_loss = 0.0
 
 
@@ -149,20 +145,11 @@ def main():
                             help="batch size for training, default: 32")
     arg_parser.add_argument("--lr", type=float, default=0.01, help="learning rate, default: 0.01")
     arg_parser.add_argument("--embed-size", type=int, default=25, help="embedding dimensions, default: 25")
-    arg_parser.add_argument("--task-number", type=int, default=1,
-                            help="task to process, default: 1")
-    arg_parser.add_argument("--hops", type=int, default=1, help="Number of hops to make: 1, 2 or 3; default: 1 ")
-    arg_parser.add_argument("--anneal-factor", type=int, default=2,
-                            help="factor to anneal by every 'anneal-epoch(s)', default: 2")
-    arg_parser.add_argument("--anneal-epoch", type=int, default=25,
-                            help="anneal every [anneal-epoch] epoch, default: 25")
     arg_parser.add_argument("--eval", type=int, default=1, help="evaluate after training, default: 1")
     arg_parser.add_argument("--cuda", type=int, default=0, help="train on GPU, default: 0")
     arg_parser.add_argument("--memory-size", type=int, default=50, help="upper limit on memory size, default: 50")
     arg_parser.add_argument("--log-epochs", type=int, default=4,
                             help="Number of epochs after which to log progress, default: 4")
-    arg_parser.add_argument("--joint-training", type=int, default=0, help="joint training flag, default: 0")
-
     arg_parser.add_argument("--saved-model-dir", type=str,
                             default="./saved/", help="path to folder where trained model will be saved.")
     arg_parser.add_argument("--data-dir", type=str, default="./data/tasks_1-20_v1-2/en",
@@ -175,19 +162,18 @@ def main():
     check_paths(args)
     save_model_path = model_path(args)
 
-    
-    train_batches, val_batches, test_batches, train_set, val_set, test_set, sentence_size, vocab_size, story_size, word_idx = \
+    train_set, train_batches, test_set, test_batches, captions, vocab_size, word_idx  = \
         process_data(args)
 
     if args.train == 1:
-        train_network(train_batches, val_batches, test_batches, train_set, val_set, test_set, story_size=story_size,
+        train_network(train_batches, test_batches, train_set, test_set, captions=captions,
                       vocab_size=vocab_size, save_model_path=save_model_path, args=args)
 
-    if args.eval == 1:
-        model = save_model_path
-        eval_network(story_size=story_size, vocab_size=vocab_size,
-                     EMBED_SIZE=args.embed_size, batch_size=args.batch_size, depth=args.hops,
-                     model=model, test_batches=test_batches, test=test_set)
+    # if args.eval == 1:
+    #     model = save_model_path
+    #     eval_network(story_size=story_size, vocab_size=vocab_size,
+    #                  EMBED_SIZE=args.embed_size, batch_size=args.batch_size, depth=args.hops,
+    #                  model=model, test_batches=test_batches, test=test_set)
 
 
 if __name__ == '__main__':

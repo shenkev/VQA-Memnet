@@ -8,6 +8,9 @@ captions_vec, questions_vec, answers_vec = util.vectorize_data(captions=captions
 
 S, Q, A = util.generate_s_q_a(questions=questions_vec, answers=answers_vec, limit_to_species=False)
 
+data = (S, Q, A)
+train_set, train_batches, test_set, test_batches = util.batch_data(data=data, batch_size=16, test_size=0.2)
+
 
 pdb.set_trace()
 x = 1

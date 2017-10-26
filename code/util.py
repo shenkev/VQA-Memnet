@@ -22,8 +22,7 @@ if (torch.cuda.is_available()):
 
 
 def process_data(args):
-    # test_size = .1
-    # random_state = None
+
     captions, questions, answers, vocab = load_data(args.data_dir, args.is_present_threshold)
 
     sentence_size, vocab_size, word_idx = calculate_parameter_values(captions, questions, vocab)
@@ -33,15 +32,12 @@ def process_data(args):
 
     S, Q, A = generate_s_q_a(questions=questions_vec, answers=answers_vec, limit_to_species=args.limit_to_species)
 
-
-    #return sentence_size, vocab_size, word_idx
-
-    # train_set, train_batches, val_set, val_batches, test_set, test_batches = \
-    #     vectorize_task_data(args.batch_size, data, args.debug, memory_size,
-    #                         random_state, sentence_size, test_data, test_size, word_idx)
-
-    # return train_batches, val_batches, test_batches, train_set, val_set, test_set, \
-    #        sentence_size, vocab_size, memory_size, word_idx
+    data = (S, Q, A)
+    train_set, train_batches, test_set, test_batches = batch_data(data=data, 
+                                                                  batch_size=args.batch_size,
+                                                                  test_size=args.test_size)
+    
+    return train_set, train_batches, test_set, test_batches, captions_vec, vocab_size, word_idx 
 
 
 class punctuation_stripper(object):
@@ -157,48 +153,20 @@ def calculate_parameter_values(captions, questions, vocab):
     return sentence_size, vocab_size, word_idx
 
 
-# def vectorize_task_data(batch_size, data, debug, memory_size, random_state, sentence_size, test,
-#                         test_size, word_idx):
-#     S, Q, Y = vectorize_data(data, word_idx, sentence_size, memory_size)
+def batch_data(data, batch_size, test_size):
 
-#     if debug is True:
-#         print("S : ", S)
-#         print("Q : ", Q)
-#         print("Y : ", Y)
-#     trainS, valS, trainQ, valQ, trainY, valY = model_selection.train_test_split(S, Q, Y, test_size=test_size,
-#                                                                                 random_state=random_state)
-#     testS, testQ, testY = vectorize_data(test, word_idx, sentence_size, memory_size)
+    S, Q, A = data
 
-#     if debug is True:
-#         print(S[0].shape, Q[0].shape, Y[0].shape)
-#         print("Training set shape", trainS.shape)
+    trainS, testS, trainQ, testQ, trainA, testA = model_selection.train_test_split(S, Q, A, test_size=test_size)
 
-#     # params
-#     n_train = trainS.shape[0]
-#     n_val = valS.shape[0]
-#     n_test = testS.shape[0]
-#     if debug is True:
-#         print("Training Size: ", n_train)
-#         print("Validation Size: ", n_val)
-#         print("Testing Size: ", n_test)
-#     train_labels = np.argmax(trainY, axis=1)
-#     test_labels = np.argmax(testY, axis=1)
-#     val_labels = np.argmax(valY, axis=1)
-#     n_train_labels = train_labels.shape[0]
-#     n_val_labels = val_labels.shape[0]
-#     n_test_labels = test_labels.shape[0]
+    # params
+    n_train = len(trainS)
+    n_test = len(testS)
 
-#     if debug is True:
-#         print("Training Labels Size: ", n_train_labels)
-#         print("Validation Labels Size: ", n_val_labels)
-#         print("Testing Labels Size: ", n_test_labels)
+    train_batches = zip(range(0, n_train - batch_size, batch_size), range(batch_size, n_train, batch_size))
+    test_batches = zip(range(0, n_test - batch_size, batch_size), range(batch_size, n_test, batch_size))
 
-#     train_batches = zip(range(0, n_train - batch_size, batch_size), range(batch_size, n_train, batch_size))
-#     val_batches = zip(range(0, n_val - batch_size, batch_size), range(batch_size, n_val, batch_size))
-#     test_batches = zip(range(0, n_test - batch_size, batch_size), range(batch_size, n_test, batch_size))
-
-#     return [trainS, trainQ, trainY], list(train_batches), [valS, valQ, valY], list(val_batches), [testS, testQ, testY], \
-#            list(test_batches)
+    return [trainS, trainQ, trainA], list(train_batches), [testS, testQ, testA], list(test_batches)
 
 
 def vectorize_data(captions, questions, answers, sentence_size, word_idx):
