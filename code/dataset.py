@@ -1,3 +1,4 @@
+import torch
 import torch.utils.data as data
 import data_util as util
 from enum import Enum, auto
@@ -24,19 +25,15 @@ class birdCaptionSimpleYesNoDataset(data.Dataset):
 
         Via Calculation:
 
-            captions: a dictionary of the form {<species_id>: <captions>}
-                      <species_id> - integer representing the species, 0 indicates all species
-                      <captions> - tuples of the form (<species_id>, <caption_words>)
-                                   <species_id> - integer representing the species
-                                   <vectorized_caption> - list of integers corresponding to words in word_idx
-            qa_pairs: a list tuples of the form (<species_id>, <question>, <answer>)
-                      <species_id> - integer representing the species
-                      <vectorized_question> - list of integers corresponding to words in word_idx
-                      <answer> - [0, 1] = Yes or [1, 0] = No
             word_idx: a dictionary of the form {<word>: <idx>}
             sentence_size: max sentence size between all questions and captions
             memory_size: size of required memory for MemN2N
 
+            caption_species: dictionary of the form {<species_id>: list of <species_id>} (yes this is dumb and only mildly useful for the all species case)
+            captions: dictionary of the form {<species_id>: list of <vectorized_caption>}
+            question_species: list of <species_id> corresponding to questions
+            question: list of <vectorized_question>
+            answer: list of [0, 1] = Yes or [1, 0] = No
         '''
 
         captions = util.load_captions(dataset_dir)
@@ -59,23 +56,27 @@ class birdCaptionSimpleYesNoDataset(data.Dataset):
         self.dataset_dir = dataset_dir
         self.limit_to_species = limit_to_species
         self.dataset_type = dataset_type
-        self.captions = captions
-        self.qa_pairs = qa_pairs
         self.word_idx = word_idx
         self.sentence_size = sentence_size
         self.memory_size = memory_size
 
+        self.captions_species = {species_id: torch.LongTensor([caption[0] for caption in species_captions]) for (species_id, species_captions) in captions.items()}   
+        self.captions = {species_id: torch.LongTensor([caption[1] for caption in species_captions]) for (species_id, species_captions) in captions.items()}   
+        self.question_species = torch.LongTensor([qa_pair[0] for qa_pair in qa_pairs])
+        self.question = torch.LongTensor([qa_pair[1] for qa_pair in qa_pairs])
+        self.answer = torch.LongTensor([qa_pair[2] for qa_pair in qa_pairs])
+
     def __getitem__(self, idx):
         '''
         Returns:
-        relevant_captions: list of tuples of the form (<species_id, vectorized_caption>)
-        question: tuple of the form (<species_id, vectorized_question>)
+        captions_species: species_id corresponding to each caption
+        captions: vectorized captions relevant to the question
+        quesion_species: species_id corresponding to the question
+        question: vectorized question
         answer:  [0, 1] = Yes or [1, 0] = No
         '''
-        relevant_captions = self.captions[self.qa_pairs[idx][0] if self.limit_to_species else 0]
-        question = self.qa_pairs[idx][1]
-        answer = self.qa_pairs[idx][2]
-        return relevant_captions, question, answer
+        captions_idx = self.question_species[idx] if self.limit_to_species else 0
+        return self.captions_species[captions_idx], self.captions[captions_idx], self.question_species[idx], self.question[idx], self.answer[idx]
 
     def __len__(self):
-        return len(self.qa_pairs)
+        return len(self.question)
