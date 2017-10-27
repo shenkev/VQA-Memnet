@@ -1,6 +1,7 @@
 .idea/
 *.ipynb
 /bAbI/data
+/birds/captions/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

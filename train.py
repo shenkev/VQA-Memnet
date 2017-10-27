@@ -4,15 +4,13 @@ import torch.nn as nn
 from torch.autograd import Variable
 from model import vqa_memnet
 from torch.utils.data import DataLoader
-from bAbI.dataset import bAbIDataset
+from birds.dataset import birdCaptionSimpleYesNoDataset
 
 
 def parse_config():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_dir", type=str, default="bAbI/data/tasks_1-20_v1-2/en/",
                         help='the path to the directory of the data')
-    parser.add_argument("--task", type=int, default=1,
-                        help='the task number for bAbI')
     parser.add_argument("--batch_size", type=int, default=32,
                         help='the batch size for each training iteration using a variant of stochastic gradient descent')
     parser.add_argument("--text_latent_size", type=int, default=25,
@@ -27,20 +25,22 @@ def parse_config():
     return parser.parse_args()
 
 
-def load_data(task, batch_size, dataset_dir='./bAbI/data/tasks_1-20_v1-2/en/'):
+def load_data(batch_size, dataset_dir='/home/shenkev/School/VQA-Memnet/birds'):
 
-    train_data = bAbIDataset(dataset_dir, task)
-    train_loader = DataLoader(train_data, batch_size=batch_size, num_workers=1, shuffle=True)
+    train_data = birdCaptionSimpleYesNoDataset(dataset_dir=dataset_dir, limit_to_species=False, dataset_type="train")
+    train_loader = DataLoader(train_data, batch_size=batch_size, num_workers=1, shuffle=False)
 
-    test_data = bAbIDataset(dataset_dir, task, train=False)
+    val_data = birdCaptionSimpleYesNoDataset(dataset_dir=dataset_dir, limit_to_species=False, dataset_type="val")
+    val_loader = DataLoader(val_data, batch_size=batch_size, num_workers=1, shuffle=False)
+
+    test_data = birdCaptionSimpleYesNoDataset(dataset_dir=dataset_dir, limit_to_species=False, dataset_type="test")
     test_loader = DataLoader(test_data, batch_size=batch_size, num_workers=1, shuffle=False)
 
-    print("Longest sentence length", train_data.sentence_size)
-    print("Longest story length", train_data.max_story_size)
-    print("Average story length", train_data.mean_story_size)
-    print("Number of vocab", train_data.num_vocab)
+    test = train_data.word_idx
+    print("Longest caption length", train_data.sentence_size)
+    print("Number of vocab", len(train_data.word_idx))
 
-    return train_loader, test_loader, train_data.num_vocab, train_data.max_story_size, train_data.sentence_size
+    return train_loader, test_loader, test, train_data.sentence_size
 
 
 def to_var(x):
@@ -144,12 +144,11 @@ if __name__ == "__main__":
     learn_rate = config.lr
     batch_size = config.batch_size
     text_latent_size = config.text_latent_size
-    task = config.task
     epochs = config.epochs
 
     weight_path = './Model/vqamemnet.pkl'
 
-    train_loader, test_loader, vocabulary_size, num_of_evidences, words_in_sentence = load_data(task, batch_size)
+    train_loader, test_loader, vocabulary_size, num_of_evidences, words_in_sentence = load_data(batch_size)
 
     net = load_model(vocabulary_size, text_latent_size, num_of_evidences, words_in_sentence)
     criterion = nn.CrossEntropyLoss()
