@@ -87,7 +87,7 @@ def final_prediction(features, weights):
 
 class vqa_memnet(nn.Module):
 
-    def __init__(self, vocabulary_size, text_latent_size, num_of_evidences, words_in_question):
+    def __init__(self, vocabulary_size, text_latent_size, words_in_question):
         super(vqa_memnet, self).__init__()
 
         self.position_encoding = get_position_encoding(words_in_question, text_latent_size)

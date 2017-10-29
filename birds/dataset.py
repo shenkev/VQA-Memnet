@@ -1,6 +1,7 @@
 import torch
 import torch.utils.data as data
 import data_util as util
+import data_emb_util as emb_util
 
 import pdb
 
@@ -71,6 +72,65 @@ class birdCaptionSimpleYesNoDataset(data.Dataset):
         '''
         captions_idx = self.question_species[idx] if self.limit_to_species else 0
         return self.captions_species[captions_idx], self.captions[captions_idx], self.question_species[idx], self.question[idx], self.answer[idx]
+
+    def __len__(self):
+        return len(self.question)
+
+
+class birdEmbeddedCaptionSimpleYesNoDataset(data.Dataset):
+    def __init__(self, dataset_dir, embedding_dir, dataset_type):
+        '''
+
+        Initializes the following values:
+
+        From Args:
+
+            dataset_dir: the directory in which question-answer pair information is stored
+            dataset_type: an enum indicating if the data set is training, validation or test
+
+        Via Calculation:
+
+            word_idx: a dictionary of the form {<word>: <idx>}
+            sentence_size: max sentence size between all questions
+
+            caption_embeddings: dictionary of the form {<species_id>: numpy matrix of embedded captions}
+            question_species: list of <species_id> corresponding to questions
+            question: list of <vectorized_question>
+            answer: list of [0, 1] = Yes or [1, 0] = No
+        '''
+
+        caption_embeddings = emb_util.load_captions(embedding_dir)
+
+        qa_train, qa_val, qa_test = util.load_simple_yes_no_qa_pairs(dataset_dir)
+
+        word_idx, sentence_size = emb_util.get_common_parameters(qa_train + qa_val + qa_test)
+
+        if dataset_type == "train":
+            qa_pairs = util.vectorize_qa_pairs(qa_train, word_idx, sentence_size)
+        if dataset_type == "val":
+            qa_pairs = util.vectorize_qa_pairs(qa_val, word_idx, sentence_size)
+        if dataset_type == "test":
+            qa_pairs = util.vectorize_qa_pairs(qa_test, word_idx, sentence_size)
+
+        self.dataset_dir = dataset_dir
+        self.dataset_type = dataset_type
+        self.word_idx = word_idx
+        self.sentence_size = sentence_size
+
+        self.caption_embeddings = caption_embeddings
+        self.question_species = torch.LongTensor([qa_pair[0] for qa_pair in qa_pairs])
+        self.question = torch.LongTensor([qa_pair[1] for qa_pair in qa_pairs])
+        self.answer = torch.LongTensor([qa_pair[2] for qa_pair in qa_pairs])
+
+    def __getitem__(self, idx):
+        '''
+        Returns:
+        caption_embeddings: dictionary of the form {<species_id>: numpy matrix of embedded captions}
+        quesion_species: species_id corresponding to the question
+        question: vectorized question
+        answer:  [0, 1] = Yes or [1, 0] = No
+        '''
+        return self.question_species[idx], self.question[idx], self.answer[idx]
 
     def __len__(self):
         return len(self.question)

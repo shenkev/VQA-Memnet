@@ -2,6 +2,11 @@
 *.ipynb
 /bAbI/data
 /birds/captions/
+/encoder/dataset/
+/encoder/mean_embeddings/
+/encoder/sampled_embeddings/
+/encoder/infersent.allnli.pickle
+/encoder/samples.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
