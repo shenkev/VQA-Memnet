@@ -13,7 +13,7 @@ def parse_config():
                         help='the path to the directory of the data')
     parser.add_argument("--batch_size", type=int, default=32,
                         help='the batch size for each training iteration using a variant of stochastic gradient descent')
-    parser.add_argument("--text_latent_size", type=int, default=25,
+    parser.add_argument("--text_latent_size", type=int, default=30,
                         help='the size of text embedding for question and evidence')
     parser.add_argument("--epochs", type=int, default=100,
                         help='the number of epochs to train for')
@@ -27,20 +27,21 @@ def parse_config():
 
 def load_data(batch_size, dataset_dir='/home/shenkev/School/VQA-Memnet/birds'):
 
-    train_data = birdCaptionSimpleYesNoDataset(dataset_dir=dataset_dir, limit_to_species=False, dataset_type="train")
+    train_data = birdCaptionSimpleYesNoDataset(dataset_dir=dataset_dir, limit_to_species=True, dataset_type="train")
     train_loader = DataLoader(train_data, batch_size=batch_size, num_workers=1, shuffle=False)
 
-    val_data = birdCaptionSimpleYesNoDataset(dataset_dir=dataset_dir, limit_to_species=False, dataset_type="val")
-    val_loader = DataLoader(val_data, batch_size=batch_size, num_workers=1, shuffle=False)
+    # val_data = birdCaptionSimpleYesNoDataset(dataset_dir=dataset_dir, limit_to_species=False, dataset_type="val")
+    # val_loader = DataLoader(val_data, batch_size=batch_size, num_workers=1, shuffle=False)
 
-    test_data = birdCaptionSimpleYesNoDataset(dataset_dir=dataset_dir, limit_to_species=False, dataset_type="test")
+    test_data = birdCaptionSimpleYesNoDataset(dataset_dir=dataset_dir, limit_to_species=True, dataset_type="test")
     test_loader = DataLoader(test_data, batch_size=batch_size, num_workers=1, shuffle=False)
 
-    test = train_data.word_idx
-    print("Longest caption length", train_data.sentence_size)
-    print("Number of vocab", len(train_data.word_idx))
+    vocabulary_size = len(train_data.word_idx)
+    caption_length = train_data.sentence_size
+    print("Longest caption length", caption_length)
+    print("Number of vocab", vocabulary_size)
 
-    return train_loader, test_loader, test, train_data.sentence_size
+    return train_loader, test_loader, vocabulary_size, caption_length
 
 
 def to_var(x):
@@ -49,8 +50,8 @@ def to_var(x):
     return Variable(x)
 
 
-def load_model(vocabulary_size, text_latent_size, num_of_evidences, words_in_sentence):
-    net = vqa_memnet(vocabulary_size, text_latent_size, num_of_evidences, words_in_sentence)
+def load_model(vocabulary_size, text_latent_size, words_in_sentence):
+    net = vqa_memnet(vocabulary_size, text_latent_size, words_in_sentence)
     if torch.cuda.is_available():
         net.cuda()
     return net
@@ -107,34 +108,48 @@ def gradient_noise_and_clip(parameters, noise_stddev=1e-4, max_clip=40.0):
 
 
 def train(epochs, train_loader, test_loader, net, optimizer, criterion):
+    total_step = 0
     for epoch in range(epochs):
 
         epoch_loss = 0
-        for i, (evidence, question, answer) in enumerate(train_loader):
-            evidence = to_var(evidence)
+        for i, (captions_species, captions, question_species, question, answer) in enumerate(train_loader):
+            captions = to_var(captions)
             question = to_var(question)
             answer = to_var(answer)
+            _, answer = torch.max(answer, 1)
 
-            epoch_loss += step(net, optimizer, criterion, evidence, question, answer, epoch*32 + i)
+            batch_loss = step(net, optimizer, criterion, captions, question, answer, total_step)
+            epoch_loss += batch_loss
 
-        if (epoch + 1) % 10 == 0:
-            train_acc = evaluate(net, train_loader)
-            test_acc = evaluate(net, test_loader)
-            print(epoch + 1, epoch_loss, train_acc, test_acc)
+            total_step = total_step + 1
+            if (total_step) % 100 == 0:
+                train_acc = evaluate(net, train_loader)
+                test_acc = evaluate(net, test_loader)
+                print(total_step, batch_loss, train_acc, test_acc)
+
+        # if (epoch + 1) % 1 == 0:
+        #     train_acc = evaluate(net, train_loader)
+        #     test_acc = evaluate(net, test_loader)
+        #     print(epoch + 1, epoch_loss, train_acc, test_acc)
 
 
 def evaluate(net, loader):
     correct = 0
-    for step, (story, query, answer) in enumerate(loader):
-        story = to_var(story)
-        query = to_var(query)
+    for step, (captions_species, captions, question_species, question, answer) in enumerate(loader):
+        captions = to_var(captions)
+        question = to_var(question)
         answer = to_var(answer)
+        _, answer = torch.max(answer, 1)
 
-        output = net(story, query)
+        output = net(captions, question)
         _, output_max_index = torch.max(output, 1)
         correct += (answer == output_max_index).float().sum()  # really weird, without float() this counter resets to 0
 
-    acc = float(correct.data[0]) / len(loader.dataset)
+        if step > 250:  # prevent out-of-memory error
+            break
+
+    # acc = float(correct.data[0]) / len(loader.dataset)
+    acc = float(correct.data[0])/(32.0 * step) # 32 is batch size
     return acc
 
 
@@ -148,9 +163,9 @@ if __name__ == "__main__":
 
     weight_path = './Model/vqamemnet.pkl'
 
-    train_loader, test_loader, vocabulary_size, num_of_evidences, words_in_sentence = load_data(batch_size)
+    train_loader, test_loader, vocabulary_size, words_in_sentence = load_data(batch_size)
 
-    net = load_model(vocabulary_size, text_latent_size, num_of_evidences, words_in_sentence)
+    net = load_model(vocabulary_size, text_latent_size, words_in_sentence)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(net.parameters(), lr=learn_rate)
 

@@ -2,6 +2,7 @@
 *.ipynb
 /bAbI/data
 /birds/captions/
+/encoder/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
