@@ -78,8 +78,9 @@ def mean_pool(x, weights):
     return z
 
 
-def final_prediction(features, weights):
-    return features.matmul(weights)
+def load_captions(dir='./encoder/pca/pca100_embeddings.npy'):
+    return np.load(dir)
+
 
 '''
  Args:
@@ -96,7 +97,10 @@ class vqa_memnet(nn.Module):
     def __init__(self, caption_embeddings, num_species, vocabulary_size, text_latent_size, specie_latent_size):
         super(vqa_memnet, self).__init__()
 
-        self.caption_embeddings = caption_embeddings  # size 200x4096
+        # self.caption_embeddings = caption_embeddings  # size 200x4096
+        # cap_emb = torch.randn(200, 4096)
+        cap_emb = torch.from_numpy(load_captions())
+        self.caption_embeddings = Variable(cap_emb.cuda())
         self.num_species = num_species
 
         # padding_idx=0 is required or else the 0 words (absence of a word) gets mapped to garbage
@@ -134,6 +138,7 @@ class vqa_memnet(nn.Module):
                 specie_caption_emb.size(1)
             ),
             specie_question_emb)
+        # _, test = torch.max(weights, 1)
         weighted_evidence = mean_pool(self.caption_embeddings, weights)
 
         # features = torch.cat((weighted_evidence, question_emb.squeeze(0)))

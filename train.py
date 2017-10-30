@@ -11,9 +11,9 @@ def parse_config():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_dir", type=str, default="bAbI/data/tasks_1-20_v1-2/en/",
                         help='the path to the directory of the data')
-    parser.add_argument("--batch_size", type=int, default=32,
+    parser.add_argument("--batch_size", type=int, default=256,
                         help='the batch size for each training iteration using a variant of stochastic gradient descent')
-    parser.add_argument("--text_latent_size", type=int, default=4096,
+    parser.add_argument("--text_latent_size", type=int, default=100,
                         help='the size of text embedding for question and evidence')
     parser.add_argument("--epochs", type=int, default=100,
                         help='the number of epochs to train for')
@@ -117,10 +117,13 @@ def step(net, optimizer, criterion, question_species, question, answer, i):
     gradient_noise_and_clip(net.parameters())
     optimizer.step()
 
-    if i % 10 == 0:
-        _, output_max_index = torch.max(output, 1)
-        num_correct = (output_max_index == answer).sum().data[0]
-        print('Step : ' + str(i) + ', Accuracy : ' + str(num_correct/32.0))
+    # _, output_max_index = torch.max(output, 1)
+    # num_correct = (output_max_index == answer).sum().data[0]
+
+    # if i % 10 == 0:
+    #     _, output_max_index = torch.max(output, 1)
+    #     num_correct = (output_max_index == answer).sum().data[0]
+    #     print('Step : ' + str(i) + ', Accuracy : ' + str(num_correct/256.0))
 
     return loss.data[0]
 
@@ -147,7 +150,7 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
 
             epoch_loss += step(net, optimizer, criterion, question_species, question, answer, i)
 
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % 1 == 0:
             train_acc = evaluate(net, train_loader)
             test_acc = evaluate(net, test_loader)
             print(epoch + 1, epoch_loss, train_acc, test_acc)
