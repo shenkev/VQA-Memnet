@@ -5,7 +5,13 @@ from torch.nn import Parameter
 from torch.autograd import Variable
 
 
-def embed_question(question, embed_layer, position_encoding):
+def embed_specie(specie, embed_layer):
+    question_emb = embed_layer(specie)
+
+    return question_emb
+
+
+def embed_question(question, embed_layer):
     question_emb = embed_layer(question)
 
     # question_emb = question_emb * position_encoding
@@ -87,38 +93,50 @@ def final_prediction(features, weights):
 
 class vqa_memnet(nn.Module):
 
-    def __init__(self, vocabulary_size, text_latent_size, words_in_question):
+    def __init__(self, caption_embeddings, num_species, vocabulary_size, text_latent_size, specie_latent_size):
         super(vqa_memnet, self).__init__()
 
-        self.position_encoding = get_position_encoding(words_in_question, text_latent_size)
+        self.caption_embeddings = caption_embeddings  # size 200x4096
+        self.num_species = num_species
 
-        # self.temporal_enc1 = Parameter(torch.Tensor(num_of_evidences, text_latent_size))
-        # self.temporal_enc2 = Parameter(torch.Tensor(num_of_evidences, text_latent_size))
         # padding_idx=0 is required or else the 0 words (absence of a word) gets mapped to garbage
-        self.evidence_emb = nn.Embedding(vocabulary_size, text_latent_size, padding_idx=0)
-        self.question_emb = nn.Embedding(vocabulary_size, text_latent_size, padding_idx=0)
+        # need to be careful with this +1 to embedding dimension. we're counting from 1 instead of 0 with our data
+        self.species_emb = nn.Embedding(num_species + 1, specie_latent_size)
+        self.question_emb = nn.Embedding(vocabulary_size + 1, text_latent_size, padding_idx=0)
+        self.fc1 = nn.Linear(text_latent_size, 2)
 
         # weight initialization greatly helps convergence
-        # self.temporal_enc1.data.normal_(0, 0.1)
-        # self.temporal_enc2.data.normal_(0, 0.1)
-        self.evidence_emb.weight.data.normal_(0, 0.1)
+        self.species_emb.weight.data.normal_(0, 0.1)
         self.question_emb.weight.data.normal_(0, 0.1)
 
         self.softmax = nn.Softmax()
 
-    def forward(self, evidence, question):
+    def forward(self, question_species, question):
 
-        question_emb = embed_question(question, self.question_emb, self.position_encoding)
-        evidence_feature_emb, evidence_computation_emb \
-            = embed_evidence(evidence, self.question_emb, self.evidence_emb, self.position_encoding)
+        # it may be redundant to be computing all the specie embeddings every loop
+        all_species = torch.LongTensor(range(1, self.num_species+1))
 
-        # evidence_feature_emb = evidence_feature_emb + self.temporal_enc1
-        # evidence_computation_emb = evidence_computation_emb + self.temporal_enc2
+        if torch.cuda.is_available():
+            all_species = all_species.cuda()
 
-        weights = compute_evidence_weights(evidence_computation_emb, question_emb)
-        weighted_evidence = mean_pool(evidence_feature_emb, weights)
+        all_specie_emb = embed_specie(Variable(all_species), self.species_emb)
+
+        question_emb = embed_question(question, self.question_emb)
+        question_species_emb = embed_specie(question_species, self.species_emb)
+
+        specie_caption_emb = torch.cat((all_specie_emb, self.caption_embeddings), 1)
+        specie_question_emb = torch.cat((question_species_emb, question_emb), 1)
+
+        weights = compute_evidence_weights(
+            specie_caption_emb.expand(
+                specie_question_emb.size(0),
+                specie_caption_emb.size(0),
+                specie_caption_emb.size(1)
+            ),
+            specie_question_emb)
+        weighted_evidence = mean_pool(self.caption_embeddings, weights)
 
         # features = torch.cat((weighted_evidence, question_emb.squeeze(0)))
         features = weighted_evidence + question_emb.squeeze(0)
-        output = final_prediction(features, self.evidence_emb.weight.transpose(0, 1))
+        output = self.fc1(features)
         return output

@@ -25,12 +25,16 @@ def load_captions(dataset_dir):
                <caption_words> - a numpy matrix of corresponding to embeddings of captions
     '''
 
-    caption_embeddings = {}
     files = [(int(f.split('.')[0]), os.path.join(dataset_dir, f)) for f in os.listdir(dataset_dir)]
+    caption_embeddings = None
 
     for (species_id, f) in files:
         species_captions = np.load(f)
+        species_captions = np.expand_dims(species_captions, axis=0)
 
-        caption_embeddings[species_id] = species_captions
+        if caption_embeddings is None:
+            caption_embeddings = species_captions
+        else:
+            caption_embeddings = np.append(caption_embeddings, species_captions, axis=0)
 
     return caption_embeddings
