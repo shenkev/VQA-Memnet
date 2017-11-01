@@ -139,6 +139,7 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
 def evaluate(net, loader):
     correct = 0
     total = 0
+
     for step, (captions_species, captions, question_species, question, answer) in enumerate(loader):
         captions = to_var(captions)
         question = to_var(question)
@@ -154,6 +155,7 @@ def evaluate(net, loader):
 
     # acc = float(correct.data[0]) / len(loader.dataset)
     acc = float(correct.data[0])/(total) # 32 is batch size
+
     return acc
 
 

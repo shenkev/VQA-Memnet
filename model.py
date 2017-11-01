@@ -124,6 +124,7 @@ class vqa_memnet(nn.Module):
 
         features = weighted_evidence + question_emb.squeeze(0)
         # features = torch.cat((weighted_evidence, question_emb), 1)
+
         output = self.fc1(features)
         output = self.prelu(output)
         output = self.fc2(output)
