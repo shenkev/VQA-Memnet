@@ -87,7 +87,7 @@ def final_prediction(features, weights):
 
 class vqa_memnet(nn.Module):
 
-    def __init__(self, vocabulary_size, text_latent_size, num_of_evidences, words_in_question):
+    def __init__(self, vocabulary_size, text_latent_size, words_in_question):
         super(vqa_memnet, self).__init__()
 
         self.position_encoding = get_position_encoding(words_in_question, text_latent_size)
@@ -95,8 +95,8 @@ class vqa_memnet(nn.Module):
         # self.temporal_enc1 = Parameter(torch.Tensor(num_of_evidences, text_latent_size))
         # self.temporal_enc2 = Parameter(torch.Tensor(num_of_evidences, text_latent_size))
         # padding_idx=0 is required or else the 0 words (absence of a word) gets mapped to garbage
-        self.evidence_emb = nn.Embedding(vocabulary_size, text_latent_size, padding_idx=0)
-        self.question_emb = nn.Embedding(vocabulary_size, text_latent_size, padding_idx=0)
+        self.evidence_emb = nn.Embedding(vocabulary_size + 1, text_latent_size, padding_idx=0)
+        self.question_emb = nn.Embedding(vocabulary_size + 1, text_latent_size, padding_idx=0)
 
         # weight initialization greatly helps convergence
         # self.temporal_enc1.data.normal_(0, 0.1)
@@ -104,13 +104,17 @@ class vqa_memnet(nn.Module):
         self.evidence_emb.weight.data.normal_(0, 0.1)
         self.question_emb.weight.data.normal_(0, 0.1)
 
+        self.fc1 = nn.Linear(text_latent_size, 20)
+        self.prelu = nn.PReLU()
+        self.fc2 = nn.Linear(20, 2)
+
         self.softmax = nn.Softmax()
 
     def forward(self, evidence, question):
 
         question_emb = embed_question(question, self.question_emb, self.position_encoding)
-        evidence_feature_emb, evidence_computation_emb \
-            = embed_evidence(evidence, self.question_emb, self.evidence_emb, self.position_encoding)
+        evidence_feature_emb, evidence_computation_emb =\
+            embed_evidence(evidence, self.question_emb, self.evidence_emb, self.position_encoding)
 
         # evidence_feature_emb = evidence_feature_emb + self.temporal_enc1
         # evidence_computation_emb = evidence_computation_emb + self.temporal_enc2
@@ -118,7 +122,9 @@ class vqa_memnet(nn.Module):
         weights = compute_evidence_weights(evidence_computation_emb, question_emb)
         weighted_evidence = mean_pool(evidence_feature_emb, weights)
 
-        # features = torch.cat((weighted_evidence, question_emb.squeeze(0)))
         features = weighted_evidence + question_emb.squeeze(0)
-        output = final_prediction(features, self.evidence_emb.weight.transpose(0, 1))
+        # features = torch.cat((weighted_evidence, question_emb), 1)
+        output = self.fc1(features)
+        output = self.prelu(output)
+        output = self.fc2(output)
         return output
