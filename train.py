@@ -116,7 +116,7 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
             captions = to_var(captions)
 
             # TODO see if varying number of captions helps training
-            # captions = torch.index_select(captions, 1, torch.LongTensor(range(0, 1)).cuda())
+            # captions = torch.index_select(captions, 1, torch.LongTensor(range(0, 10)).cuda())
             question = to_var(question)
             answer = to_var(answer)
             _, answer = torch.max(answer, 1)
