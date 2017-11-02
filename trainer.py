@@ -5,35 +5,36 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-from dataset import bAbIDataset
+from birds.dataset import birdCaptionSimpleYesNoDataset
 from model import MemN2N
 
 class Trainer():
     def __init__(self, config):
-        self.train_data = bAbIDataset(config.dataset_dir, config.task)
+        self.train_data = birdCaptionSimpleYesNoDataset(config.dataset_dir, limit_to_species=True, dataset_type="train")
         self.train_loader = DataLoader(self.train_data,
                                        batch_size=config.batch_size,
                                        num_workers=1,
                                        shuffle=True)
 
-        self.test_data = bAbIDataset(config.dataset_dir, config.task, train=False)
+        self.test_data = birdCaptionSimpleYesNoDataset(config.dataset_dir, limit_to_species=True, dataset_type="test")
         self.test_loader = DataLoader(self.test_data,
                                       batch_size=config.batch_size,
                                       num_workers=1,
                                       shuffle=False)
 
+        num_vocab = len(self.train_data.word_idx)
+        sentence_size = self.train_data.sentence_size
+
         settings = {
             "use_cuda": config.cuda,
-            "num_vocab": self.train_data.num_vocab,
-            "embedding_dim": 20,
-            "sentence_size": self.train_data.sentence_size,
+            "num_vocab": num_vocab,
+            "embedding_dim": config.embed_dim,
+            "sentence_size": sentence_size,
             "max_hops": config.max_hops
         }
 
-        print("Longest sentence length", self.train_data.sentence_size)
-        print("Longest story length", self.train_data.max_story_size)
-        print("Average story length", self.train_data.mean_story_size)
-        print("Number of vocab", self.train_data.num_vocab)
+        print("Longest sentence length", sentence_size)
+        print("Number of vocab", num_vocab)
 
         self.mem_n2n = MemN2N(settings)
         self.ce_fn = nn.CrossEntropyLoss(size_average=False)
@@ -62,22 +63,25 @@ class Trainer():
     def load(self, directory):
         pass
 
-    def evaluate(self, data="test"):
+    def evaluate(self, data):
         correct = 0
         loader = self.train_loader if data == "train" else self.test_loader
-        for step, (story, query, answer) in enumerate(loader):
-            story = Variable(story)
-            query = Variable(query)
+        for step, (captions_species, captions, question_species, question, answer) in enumerate(loader):
+            captions = Variable(captions)
+            question = Variable(question)
             answer = Variable(answer)
+            _, answer = torch.max(answer, 1)
 
             if self.config.cuda:
-                story = story.cuda()
-                query = query.cuda()
+                captions = captions.cuda()
+                question = question.cuda()
                 answer = answer.cuda()
 
-            pred_prob = self.mem_n2n(story, query)[1]
-            pred = pred_prob.data.max(1)[1] # max func return (max, argmax)
-            correct += pred.eq(answer.data).cpu().sum()
+            pred_prob = self.mem_n2n(captions, question)[1]
+            _, output_max_index = torch.max(pred_prob, 1)
+            correct = correct + (answer == output_max_index).float().sum()
+            if step > 3:
+                break
 
         acc = correct / len(loader.dataset)
         return acc
@@ -85,18 +89,19 @@ class Trainer():
     def _train_single_epoch(self, epoch):
         config = self.config
         num_steps_per_epoch = len(self.train_loader)
-        for step, (story, query, answer) in enumerate(self.train_loader):
-            story = Variable(story)
-            query = Variable(query)
+        for step, (captions_species, captions, question_species, question, answer) in enumerate(self.train_loader):
+            captions = Variable(captions)
+            question = Variable(question)
             answer = Variable(answer)
+            _, answer = torch.max(answer, 1)
 
             if config.cuda:
-                story = story.cuda()
-                query = query.cuda()
+                captions = captions.cuda()
+                question = question.cuda()
                 answer = answer.cuda()
         
             self.opt.zero_grad()
-            loss = self.ce_fn(self.mem_n2n(story, query)[0], answer)
+            loss = self.ce_fn(self.mem_n2n(captions, question)[0], answer)
             loss.backward()
 
             self._gradient_noise_and_clip(self.mem_n2n.parameters(),

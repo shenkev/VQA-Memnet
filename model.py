@@ -41,11 +41,12 @@ class MemN2N(nn.Module):
         self.max_hops = settings["max_hops"]
 
         for hop in range(self.max_hops+1):
-            C = nn.Embedding(num_vocab, embedding_dim, padding_idx=0)
+            C = nn.Embedding(num_vocab + 1, embedding_dim, padding_idx=0)
             C.weight.data.normal_(0, 0.1)
             self.add_module("C_{}".format(hop), C)
         self.C = AttrProxy(self, "C_")
 
+        self.fc1 = nn.Linear(embedding_dim, 2)
         self.softmax = nn.Softmax()
         self.encoding = Variable(torch.FloatTensor(
             position_encoding(sentence_size, embedding_dim)), requires_grad=False)
@@ -82,5 +83,5 @@ class MemN2N(nn.Module):
             u_k = u[-1] + o_k
             u.append(u_k)
        
-        a_hat = u[-1]@self.C[self.max_hops].weight.transpose(0, 1)
+        a_hat = self.fc1(u[-1])
         return a_hat, self.softmax(a_hat)
