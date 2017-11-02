@@ -5,8 +5,12 @@ from torch.autograd import Variable
 from model import vqa_memnet
 from torch.utils.data import DataLoader
 from birds.dataset import birdCaptionSimpleYesNoDataset
+from logger import Logger
 import pdb
 
+# Set the logger
+run_name = 'run'
+logger = Logger('./logs/' + run_name)
 
 def parse_config():
     parser = argparse.ArgumentParser()
@@ -16,7 +20,7 @@ def parse_config():
                         help='the batch size for each training iteration using a variant of stochastic gradient descent')
     parser.add_argument("--text_latent_size", type=int, default=30,
                         help='the size of text embedding for question and evidence')
-    parser.add_argument("--epochs", type=int, default=100,
+    parser.add_argument("--epochs", type=int, default=200,
                         help='the number of epochs to train for')
     parser.add_argument("--lr", type=float, default=0.001,
                         help='the starting learning rate for the optimizer')
@@ -26,10 +30,10 @@ def parse_config():
     return parser.parse_args()
 
 
-def load_data(batch_size, dataset_dir='/Users/atef/VQA-Memnet/birds'):
+def load_data(batch_size, dataset_dir='/home/shenkev/School/VQA-Memnet/birds'):
 
     train_data = birdCaptionSimpleYesNoDataset(dataset_dir=dataset_dir, limit_to_species=True, dataset_type="train")
-    train_loader = DataLoader(train_data, batch_size=batch_size, num_workers=1, shuffle=False)
+    train_loader = DataLoader(train_data, batch_size=batch_size, num_workers=1, shuffle=True)
 
     # val_data = birdCaptionSimpleYesNoDataset(dataset_dir=dataset_dir, limit_to_species=False, dataset_type="val")
     # val_loader = DataLoader(val_data, batch_size=batch_size, num_workers=1, shuffle=False)
@@ -108,6 +112,10 @@ def gradient_noise_and_clip(parameters, noise_stddev=1e-4, max_clip=40.0):
         p.grad.data.add_(noise)
 
 
+def to_np(x):
+    return x.data.cpu().numpy()
+
+
 def train(epochs, train_loader, test_loader, net, optimizer, criterion):
     total_step = 0
     for epoch in range(epochs):
@@ -126,10 +134,30 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
             epoch_loss += batch_loss
 
             total_step = total_step + 1
+
             if (total_step) % 100 == 0:
+                print(total_step)
                 train_acc = evaluate(net, train_loader)
                 test_acc = evaluate(net, test_loader)
                 print(total_step, batch_loss, train_acc, test_acc)
+
+                # ============ TensorBoard logging ============#
+                # (1) Log the scalar values
+                info = {
+                    'loss': batch_loss,
+                    'train accuracy': train_acc,
+                    'test accuracy': test_acc
+                }
+
+                for tag, value in info.items():
+                    logger.scalar_summary(tag, value, total_step)
+
+                # (2) Log values and gradients of the parameters (histogram)
+                for tag, value in net.named_parameters():
+                    tag = tag.replace('.', '/')
+                    logger.histo_summary(tag, to_np(value), total_step)
+                    if value.grad is not None:
+                        logger.histo_summary(tag + '/grad', to_np(value.grad), total_step)
 
         # if (epoch + 1) % 1 == 0:
         #     train_acc = evaluate(net, train_loader)
@@ -149,15 +177,16 @@ def evaluate(net, loader):
 
         output = net(captions, question)
         _, output_max_index = torch.max(output, 1)
-        correct += (answer == output_max_index).float().sum()  # really weird, without float() this counter resets to 0
+        toadd = (answer == output_max_index).float().sum().data[0]
+        correct = correct + toadd  # really weird, without float() this counter resets to 0
 
-        total += 32
+        total += captions.size(0)
         if step > 100:  # prevent out-of-memory error
             break
 
     #acc = float(correct.data[0]) / len(loader.dataset)
     #acc = float(correct.data[0])/(32.0 * step) # 32 is batch size
-    acc = float(correct.data[0])/(total)
+    acc = float(correct)/(total)
 
     return acc
 
