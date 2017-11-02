@@ -115,6 +115,9 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
         epoch_loss = 0
         for i, (captions_species, captions, question_species, question, answer) in enumerate(train_loader):
             captions = to_var(captions)
+
+            # TODO see if varying number of captions helps training
+            # captions = torch.index_select(captions, 1, torch.LongTensor(range(0, 10)).cuda())
             question = to_var(question)
             answer = to_var(answer)
             _, answer = torch.max(answer, 1)
@@ -137,6 +140,7 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
 def evaluate(net, loader):
     correct = 0
     total = 0
+
     for step, (captions_species, captions, question_species, question, answer) in enumerate(loader):
         captions = to_var(captions)
         question = to_var(question)
@@ -146,6 +150,7 @@ def evaluate(net, loader):
         output = net(captions, question)
         _, output_max_index = torch.max(output, 1)
         correct += (answer == output_max_index).float().sum()  # really weird, without float() this counter resets to 0
+
         total += 32
         if step > 100:  # prevent out-of-memory error
             break
@@ -153,6 +158,7 @@ def evaluate(net, loader):
     #acc = float(correct.data[0]) / len(loader.dataset)
     #acc = float(correct.data[0])/(32.0 * step) # 32 is batch size
     acc = float(correct.data[0])/(total)
+
     return acc
 
 

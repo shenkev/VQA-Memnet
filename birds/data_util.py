@@ -137,19 +137,26 @@ def load_simple_yes_no_qa_pairs_helper(qa_path, attributes):
         qa_pair[1] = attributes[qa_pair[1]]
 
     max_questions = 200
+    qa_pairs.sort(key= lambda qa_pair: qa_pair[2])
+    end_of_ones_idx = next(i for i, v in enumerate(qa_pairs) if v[2]==1)
+    qa_pairs = qa_pairs[0:min(end_of_ones_idx, int(max_questions/2))] \
+               + qa_pairs[end_of_ones_idx: min(2*end_of_ones_idx, end_of_ones_idx+int(max_questions/2))]
+ 
+
+    # Python 2 Version
     # def answer_compare(a, b):
     #     if a[2] > b[2]:
     #         return -1
     #     else:
     #         return 1
 
-    # TODO fix this up, this is hacky
-    #pdb.set_trace()
-    qa_pairs.sort(key= lambda qa_pair: qa_pair[2])
-    end_of_ones_idx = next(i for i, v in enumerate(qa_pairs) if v[2]==1)
-    qa_pairs = qa_pairs[0:min(end_of_ones_idx, int(max_questions/2))] \
-               + qa_pairs[end_of_ones_idx: min(2*end_of_ones_idx, end_of_ones_idx+int(max_questions/2))]
- 
+    # # TODO fix this up, this is hacky
+    # qa_pairs.sort(cmp=answer_compare)
+    # end_of_ones_idx = (i for i, v in enumerate(qa_pairs) if v[2]==0).next()
+    # qa_pairs = qa_pairs[0:min(end_of_ones_idx, max_questions/2)] \
+    #            + qa_pairs[end_of_ones_idx: min(2*end_of_ones_idx, end_of_ones_idx+max_questions/2)]
+
+
     return [tuple(qa_pair) for qa_pair in qa_pairs]
 
 
