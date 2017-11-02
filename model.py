@@ -123,8 +123,8 @@ class vqa_memnet(nn.Module):
         weighted_evidence = mean_pool(evidence_feature_emb, weights)
 
         # features = torch.cat((weighted_evidence, question_emb.squeeze(0)))
-        features = question_emb.squeeze(0)
-        # features = weighted_evidence + question_emb.squeeze(0)
+        #features = question_emb.squeeze(0)
+        features = weighted_evidence + question_emb.squeeze(0)
         # output = final_prediction(features, self.evidence_emb.weight.transpose(0, 1))
         output = self.fc1(features)
         output = self.prelu(output)

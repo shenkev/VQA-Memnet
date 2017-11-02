@@ -5,6 +5,7 @@ from torch.autograd import Variable
 from model import vqa_memnet
 from torch.utils.data import DataLoader
 from birds.dataset import birdCaptionSimpleYesNoDataset
+import pdb
 
 
 def parse_config():
@@ -25,7 +26,7 @@ def parse_config():
     return parser.parse_args()
 
 
-def load_data(batch_size, dataset_dir='/home/shenkev/School/VQA-Memnet/birds'):
+def load_data(batch_size, dataset_dir='/Users/atef/VQA-Memnet/birds'):
 
     train_data = birdCaptionSimpleYesNoDataset(dataset_dir=dataset_dir, limit_to_species=True, dataset_type="train")
     train_loader = DataLoader(train_data, batch_size=batch_size, num_workers=1, shuffle=False)
@@ -135,6 +136,7 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
 
 def evaluate(net, loader):
     correct = 0
+    total = 0
     for step, (captions_species, captions, question_species, question, answer) in enumerate(loader):
         captions = to_var(captions)
         question = to_var(question)
@@ -144,12 +146,13 @@ def evaluate(net, loader):
         output = net(captions, question)
         _, output_max_index = torch.max(output, 1)
         correct += (answer == output_max_index).float().sum()  # really weird, without float() this counter resets to 0
-
-        if step > 250:  # prevent out-of-memory error
+        total += 32
+        if step > 100:  # prevent out-of-memory error
             break
 
-    # acc = float(correct.data[0]) / len(loader.dataset)
-    acc = float(correct.data[0])/(32.0 * step) # 32 is batch size
+    #acc = float(correct.data[0]) / len(loader.dataset)
+    #acc = float(correct.data[0])/(32.0 * step) # 32 is batch size
+    acc = float(correct.data[0])/(total)
     return acc
 
 
@@ -162,7 +165,7 @@ if __name__ == "__main__":
     epochs = config.epochs
 
     weight_path = './Model/vqamemnet.pkl'
-
+    #pdb.set_trace()
     train_loader, test_loader, vocabulary_size, words_in_sentence = load_data(batch_size)
 
     net = load_model(vocabulary_size, text_latent_size, words_in_sentence)

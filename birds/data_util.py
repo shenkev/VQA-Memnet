@@ -4,14 +4,25 @@ import string
 
 import pdb
 
+# Python 2 version
+# class punctuation_stripper(object):
+
+#     def __init__(self):
+#         self.to_space = re.compile('(-|_|::|/)')
+#         # self.to_remove = string.maketrans('', '')
+
+#     def strip(self, sentence):
+#         return (self.to_space.sub(' ', sentence).translate(None, string.punctuation))
+
+# Python 3 Version
 class punctuation_stripper(object):
 
     def __init__(self):
         self.to_space = re.compile('(-|_|::|/)')
-        # self.to_remove = string.maketrans('', '')
+        self.to_remove = str.maketrans('', '', string.punctuation)
 
     def strip(self, sentence):
-        return (self.to_space.sub(' ', sentence).translate(None, string.punctuation))
+        return (self.to_space.sub(' ', sentence).translate(self.to_remove))
 
 
 def load_captions(dataset_dir):
@@ -45,6 +56,45 @@ def load_captions(dataset_dir):
                 species_captions.append((species_id, ps.strip(line).split()))
     
         captions[species_id] = species_captions
+
+    return captions
+
+def load_attribute_based_captions(dataset_dir):
+
+    image_species_map_path = os.path.join(dataset_dir, "image_class_labels.txt")
+    image_attributes_map_path = os.path.join(dataset_dir, "image_attribute_labels.txt")
+
+    image_species_map = {}
+    with open(image_species_map_path) as f:
+        lines = f.readlines()
+        for line in lines:
+            image_id, species_id = int(line.split()[0]), int(line.split()[1])
+            image_species_map[image_id] = species_id
+
+    image_attributes_map = {}
+    with open(image_attributes_map_path) as f:
+        lines = f.readlines()
+        for line in lines:
+            image_id, attribute_id, is_present = int(line.split()[0]), int(line.split()[1]), int(line.split()[2]) 
+            if image_id not in image_attributes_map:
+                image_attributes_map[image_id] = []
+            if is_present == 1:
+                image_attributes_map[image_id].append(attribute_id)
+
+    attribute_id_text_map = load_attributes(dataset_dir)
+
+    captions = {}
+    for image_id, species_id in image_species_map.items():
+        if species_id not in captions:
+            captions[species_id] = []
+    
+    for image_id, attributes_list in image_attributes_map.items():
+        caption = []
+        for attribute_id in attributes_list:
+            caption = caption + attribute_id_text_map[attribute_id][1:]
+        
+        species_id = image_species_map[image_id]
+        captions[species_id].append((species_id,caption))
 
     return captions
 
@@ -86,6 +136,20 @@ def load_simple_yes_no_qa_pairs_helper(qa_path, attributes):
     for qa_pair in qa_pairs:
         qa_pair[1] = attributes[qa_pair[1]]
 
+    max_questions = 200
+    # def answer_compare(a, b):
+    #     if a[2] > b[2]:
+    #         return -1
+    #     else:
+    #         return 1
+
+    # TODO fix this up, this is hacky
+    #pdb.set_trace()
+    qa_pairs.sort(key= lambda qa_pair: qa_pair[2])
+    end_of_ones_idx = next(i for i, v in enumerate(qa_pairs) if v[2]==1)
+    qa_pairs = qa_pairs[0:min(end_of_ones_idx, int(max_questions/2))] \
+               + qa_pairs[end_of_ones_idx: min(2*end_of_ones_idx, end_of_ones_idx+int(max_questions/2))]
+ 
     return [tuple(qa_pair) for qa_pair in qa_pairs]
 
 

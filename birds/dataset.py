@@ -1,6 +1,6 @@
 import torch
 import torch.utils.data as data
-import data_util as util
+import birds.data_util as util
 
 import pdb
 
@@ -30,7 +30,8 @@ class birdCaptionSimpleYesNoDataset(data.Dataset):
             answer: list of [0, 1] = Yes or [1, 0] = No
         '''
 
-        captions = util.load_captions(dataset_dir)
+        #captions = util.load_captions(dataset_dir)
+        captions = util.load_attribute_based_captions(dataset_dir)
 
         qa_train, qa_val, qa_test = util.load_simple_yes_no_qa_pairs(dataset_dir)
 
