@@ -1,131 +1,86 @@
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
-from torch.nn import Parameter
+import torch.nn.init as init
 from torch.autograd import Variable
 
+def position_encoding(sentence_size, embedding_dim):
+    encoding = np.ones((embedding_dim, sentence_size), dtype=np.float32)
+    ls = sentence_size + 1
+    le = embedding_dim + 1
+    for i in range(1, le):
+        for j in range(1, ls):
+            encoding[i-1, j-1] = (i - (embedding_dim+1)/2) * (j - (sentence_size+1)/2)
+    encoding = 1 + 4 * encoding / embedding_dim / sentence_size
+    # Make position encoding of time words identity to avoid modifying them
+    encoding[:, -1] = 1.0
+    return np.transpose(encoding)
 
-def embed_question(question, embed_layer, position_encoding):
-    question_emb = embed_layer(question)
+class AttrProxy(object):
+    """
+    Translates index lookups into attribute lookups.
+    To implement some trick which able to use list of nn.Module in a nn.Module
+    see https://discuss.pytorch.org/t/list-of-nn-module-in-a-nn-module/219/2
+    """
+    def __init__(self, module, prefix):
+        self.module = module
+        self.prefix = prefix
 
-    # question_emb = question_emb * position_encoding
-
-    return question_emb.sum(1)
-
-
-def embed_evidence(evidence, question_embed_layer, evidence_embed_layer, position_encoding):
-    expanded_evidence = evidence.view(-1, evidence.size(2))  # combine batch and sentence dimensions
-
-    evidence_for_computation = question_embed_layer(expanded_evidence)
-    # evidence_for_computation = evidence_for_computation * position_encoding
-    evidence_for_computation = evidence_for_computation.sum(1)
-    evidence_for_computation = evidence_for_computation.view(-1, evidence.size(1), position_encoding.size(2))
-
-    evidence_features = evidence_embed_layer(expanded_evidence)
-    # evidence_features = evidence_features * position_encoding
-    evidence_features = evidence_features.sum(1)
-    evidence_features = evidence_features.view(-1, evidence.size(1), position_encoding.size(2))
-
-    return evidence_features, evidence_for_computation
-
-
-def get_position_encoding(words_in_sentence, text_latent_size):
-
-    encoding = np.zeros((words_in_sentence, text_latent_size), dtype=np.float32)
-
-    for i in range(0, words_in_sentence):
-        for j in range(0, text_latent_size):
-            encoding[i, j] = (1-(i+1)/words_in_sentence) - ((j+1)/text_latent_size)*(1-(2*(i+1))/words_in_sentence)
-
-    encoding = torch.from_numpy(encoding)
-    return Variable(encoding.unsqueeze(0), requires_grad=False)
-
-'''
- Args:
-     e: [N * s * d]
-     q: [N * d] where s is the # sentences, d is the dimension of the text's latent representation
-
- Return:
-     - [N * s] weight probabilities
- '''
+    def __getitem__(self, i):
+        return getattr(self.module, self.prefix + str(i))
 
 
-def compute_evidence_weights(e, q):
-    z = e.bmm(q.unsqueeze(2)).squeeze(2)
-    softmax = nn.Softmax()
-    z = softmax(z)
-    return z
+class MemN2N(nn.Module):
+    def __init__(self, settings):
+        super(MemN2N, self).__init__()
 
-''' mean pools evidence items
- Args:
-     x: [N * s * d]
-     weights: [N * s]
+        use_cuda = settings["use_cuda"]
+        num_vocab = settings["num_vocab"]
+        embedding_dim = settings["embedding_dim"]
+        sentence_size = settings["sentence_size"]
+        self.max_hops = settings["max_hops"]
 
- Return:
-     - same as x but each item x_i is weighted by w_i
- '''
-
-
-def mean_pool(x, weights):
-    z = x*weights.unsqueeze(2)
-    z = z.sum(1)
-    return z
-
-
-def final_prediction(features, weights):
-    return features.matmul(weights)
-
-'''
- Args:
-     evidence: [N * s * w] where s = number of sentences, w = number of words per sentence
-     question: [N * w]
-
- Return:
-     - vector of class activations
-'''
-
-
-class vqa_memnet(nn.Module):
-
-    def __init__(self, vocabulary_size, text_latent_size, words_in_question):
-        super(vqa_memnet, self).__init__()
-
-        self.position_encoding = get_position_encoding(words_in_question, text_latent_size)
-
-        # self.temporal_enc1 = Parameter(torch.Tensor(num_of_evidences, text_latent_size))
-        # self.temporal_enc2 = Parameter(torch.Tensor(num_of_evidences, text_latent_size))
-        # padding_idx=0 is required or else the 0 words (absence of a word) gets mapped to garbage
-        self.evidence_emb = nn.Embedding(vocabulary_size + 1, text_latent_size, padding_idx=0)
-        self.question_emb = nn.Embedding(vocabulary_size + 1, text_latent_size, padding_idx=0)
-
-        # weight initialization greatly helps convergence
-        # self.temporal_enc1.data.normal_(0, 0.1)
-        # self.temporal_enc2.data.normal_(0, 0.1)
-        self.evidence_emb.weight.data.normal_(0, 0.1)
-        self.question_emb.weight.data.normal_(0, 0.1)
-
-        self.fc1 = nn.Linear(text_latent_size, 20)
-        self.prelu = nn.PReLU()
-        self.fc2 = nn.Linear(20, 2)
+        for hop in range(self.max_hops+1):
+            C = nn.Embedding(num_vocab, embedding_dim, padding_idx=0)
+            C.weight.data.normal_(0, 0.1)
+            self.add_module("C_{}".format(hop), C)
+        self.C = AttrProxy(self, "C_")
 
         self.softmax = nn.Softmax()
+        self.encoding = Variable(torch.FloatTensor(
+            position_encoding(sentence_size, embedding_dim)), requires_grad=False)
 
-    def forward(self, evidence, question):
+        if use_cuda:
+            self.encoding = self.encoding.cuda()
 
-        question_emb = embed_question(question, self.question_emb, self.position_encoding)
-        evidence_feature_emb, evidence_computation_emb =\
-            embed_evidence(evidence, self.question_emb, self.evidence_emb, self.position_encoding)
+    def forward(self, story, query):
+        story_size = story.size()
 
-        # evidence_feature_emb = evidence_feature_emb + self.temporal_enc1
-        # evidence_computation_emb = evidence_computation_emb + self.temporal_enc2
-
-        weights = compute_evidence_weights(evidence_computation_emb, question_emb)
-        weighted_evidence = mean_pool(evidence_feature_emb, weights)
-
-        features = weighted_evidence + question_emb.squeeze(0)
-        # features = torch.cat((weighted_evidence, question_emb), 1)
-
-        output = self.fc1(features)
-        output = self.prelu(output)
-        output = self.fc2(output)
-        return output
+        u = list()
+        query_embed = self.C[0](query)
+        # weired way to perform reduce_dot
+        encoding = self.encoding.unsqueeze(0).expand_as(query_embed)
+        u.append(torch.sum(query_embed*encoding, 1))
+        
+        for hop in range(self.max_hops):
+            embed_A = self.C[hop](story.view(story.size(0), -1))
+            embed_A = embed_A.view(story_size+(embed_A.size(-1),))
+       
+            encoding = self.encoding.unsqueeze(0).unsqueeze(1).expand_as(embed_A)
+            m_A = torch.sum(embed_A*encoding, 2)
+       
+            u_temp = u[-1].unsqueeze(1).expand_as(m_A)
+            prob   = self.softmax(torch.sum(m_A*u_temp, 2))
+        
+            embed_C = self.C[hop+1](story.view(story.size(0), -1))
+            embed_C = embed_C.view(story_size+(embed_C.size(-1),))
+            m_C     = torch.sum(embed_C*encoding, 2)
+       
+            prob = prob.unsqueeze(2).expand_as(m_C)
+            o_k  = torch.sum(m_C*prob, 1)
+       
+            u_k = u[-1] + o_k
+            u.append(u_k)
+       
+        a_hat = u[-1]@self.C[self.max_hops].weight.transpose(0, 1)
+        return a_hat, self.softmax(a_hat)
