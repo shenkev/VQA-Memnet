@@ -18,9 +18,9 @@ def parse_config():
                         help='the path to the directory of the data')
     parser.add_argument("--batch_size", type=int, default=32,
                         help='the batch size for each training iteration using a variant of stochastic gradient descent')
-    parser.add_argument("--text_latent_size", type=int, default=30,
+    parser.add_argument("--text_latent_size", type=int, default=50,
                         help='the size of text embedding for question and evidence')
-    parser.add_argument("--epochs", type=int, default=200,
+    parser.add_argument("--epochs", type=int, default=100,
                         help='the number of epochs to train for')
     parser.add_argument("--lr", type=float, default=0.001,
                         help='the starting learning rate for the optimizer')
@@ -28,6 +28,25 @@ def parse_config():
                         help='the upperbound for the gradient (for gradient explosions)')
 
     return parser.parse_args()
+
+
+def tensorboard_logging(batch_loss, train_acc, test_acc, net, iteration):
+    # (1) Log the scalar values
+    info = {
+        'loss': batch_loss,
+        'train accuracy': train_acc,
+        'test accuracy': test_acc
+    }
+
+    for tag, value in info.items():
+        logger.scalar_summary(tag, value, iteration)
+
+    # (2) Log values and gradients of the parameters (histogram)
+    for tag, value in net.named_parameters():
+        tag = tag.replace('.', '/')
+        logger.histo_summary(tag, to_np(value), iteration)
+        if value.grad is not None:
+            logger.histo_summary(tag + '/grad', to_np(value.grad), iteration)
 
 
 def load_data(batch_size, dataset_dir='/home/shenkev/School/VQA-Memnet/birds'):
@@ -126,48 +145,31 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
 
             # TODO see if varying number of captions helps training
             # captions = torch.index_select(captions, 1, torch.LongTensor(range(0, 10)).cuda())
+            # captions = torch.index_select(captions, 2, torch.LongTensor(range(0, 20)).cuda())
             question = to_var(question)
+            # question = torch.index_select(question, 1, torch.LongTensor(range(0, 7)).cuda())
             answer = to_var(answer)
             _, answer = torch.max(answer, 1)
 
             batch_loss = step(net, optimizer, criterion, captions, question, answer, total_step)
             epoch_loss += batch_loss
 
-            total_step = total_step + 1
-
             if (total_step) % 100 == 0:
-                print(total_step)
                 train_acc = evaluate(net, train_loader)
                 test_acc = evaluate(net, test_loader)
                 print(total_step, batch_loss, train_acc, test_acc)
+                tensorboard_logging(batch_loss, train_acc, test_acc, net, total_step)
 
-                # ============ TensorBoard logging ============#
-                # (1) Log the scalar values
-                info = {
-                    'loss': batch_loss,
-                    'train accuracy': train_acc,
-                    'test accuracy': test_acc
-                }
+            total_step = total_step + 1
 
-                for tag, value in info.items():
-                    logger.scalar_summary(tag, value, total_step)
-
-                # (2) Log values and gradients of the parameters (histogram)
-                for tag, value in net.named_parameters():
-                    tag = tag.replace('.', '/')
-                    logger.histo_summary(tag, to_np(value), total_step)
-                    if value.grad is not None:
-                        logger.histo_summary(tag + '/grad', to_np(value.grad), total_step)
-
-        # if (epoch + 1) % 1 == 0:
+                # if (epoch + 1) % 1 == 0:
         #     train_acc = evaluate(net, train_loader)
         #     test_acc = evaluate(net, test_loader)
         #     print(epoch + 1, epoch_loss, train_acc, test_acc)
 
 
 def evaluate(net, loader):
-    correct = 0
-    total = 0
+    correct = 0.0
 
     for step, (captions_species, captions, question_species, question, answer) in enumerate(loader):
         captions = to_var(captions)
@@ -177,16 +179,9 @@ def evaluate(net, loader):
 
         output = net(captions, question)
         _, output_max_index = torch.max(output, 1)
-        toadd = (answer == output_max_index).float().sum().data[0]
-        correct = correct + toadd  # really weird, without float() this counter resets to 0
+        correct = correct + (answer == output_max_index).float().sum().data[0]
 
-        total += captions.size(0)
-        if step > 100:  # prevent out-of-memory error
-            break
-
-    #acc = float(correct.data[0]) / len(loader.dataset)
-    #acc = float(correct.data[0])/(32.0 * step) # 32 is batch size
-    acc = float(correct)/(total)
+    acc = correct / len(loader.dataset)
 
     return acc
 
@@ -203,6 +198,7 @@ if __name__ == "__main__":
     #pdb.set_trace()
     train_loader, test_loader, vocabulary_size, words_in_sentence = load_data(batch_size)
 
+    words_in_sentence = 20
     net = load_model(vocabulary_size, text_latent_size, words_in_sentence)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(net.parameters(), lr=learn_rate)

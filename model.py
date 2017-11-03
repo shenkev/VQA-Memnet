@@ -51,9 +51,12 @@ def get_position_encoding(words_in_sentence, text_latent_size):
 
 
 def compute_evidence_weights(e, q):
+    i_temperature = 300  # you gota play with this value
+    e = e*(1/torch.norm(e, 2, 2)).unsqueeze(2)  # normalize evidence and question sentences
+    q = q*(1/torch.norm(q, 2, 1)).unsqueeze(1)
     z = e.bmm(q.unsqueeze(2)).squeeze(2)
     softmax = nn.Softmax()
-    z = softmax(z)
+    z = softmax(i_temperature*z)
     return z
 
 ''' mean pools evidence items
@@ -71,10 +74,6 @@ def mean_pool(x, weights):
     z = z.sum(1)
     return z
 
-
-def final_prediction(features, weights):
-    return features.matmul(weights)
-
 '''
  Args:
      evidence: [N * s * w] where s = number of sentences, w = number of words per sentence
@@ -90,7 +89,7 @@ class vqa_memnet(nn.Module):
     def __init__(self, vocabulary_size, text_latent_size, words_in_question):
         super(vqa_memnet, self).__init__()
 
-        self.position_encoding = get_position_encoding(words_in_question, text_latent_size)
+        # self.position_encoding = get_position_encoding(words_in_question, text_latent_size)
 
         # self.temporal_enc1 = Parameter(torch.Tensor(num_of_evidences, text_latent_size))
         # self.temporal_enc2 = Parameter(torch.Tensor(num_of_evidences, text_latent_size))
@@ -104,9 +103,9 @@ class vqa_memnet(nn.Module):
         self.evidence_emb.weight.data.normal_(0, 0.1)
         self.question_emb.weight.data.normal_(0, 0.1)
 
-        self.fc1 = nn.Linear(text_latent_size, 20)
-        self.prelu = nn.PReLU()
-        self.fc2 = nn.Linear(20, 2)
+        self.fc1 = nn.Linear(2*text_latent_size, 2)
+        # self.prelu = nn.PReLU()
+        # self.fc2 = nn.Linear(20, 2)
 
         self.softmax = nn.Softmax()
 
@@ -123,12 +122,10 @@ class vqa_memnet(nn.Module):
         weighted_evidence = mean_pool(evidence_feature_emb, weights)
 
 
-        # features = torch.cat((weighted_evidence, question_emb.squeeze(0)))
-        #features = question_emb.squeeze(0)
-        features = weighted_evidence + question_emb.squeeze(0)
-        # output = final_prediction(features, self.evidence_emb.weight.transpose(0, 1))
+        features = torch.cat((weighted_evidence, question_emb.squeeze(0)), 1)
+        # features = weighted_evidence + question_emb.squeeze(0)
 
         output = self.fc1(features)
-        output = self.prelu(output)
-        output = self.fc2(output)
+        # output = self.prelu(output)
+        # output = self.fc2(output)
         return output
