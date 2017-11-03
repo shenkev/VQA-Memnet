@@ -7,6 +7,14 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from birds.dataset import birdCaptionSimpleYesNoDataset
 from model import MemN2N
+from logger import Logger
+
+# Set the logger
+run_name = 'run'
+logger = Logger('./logs/' + run_name)
+
+def to_np(x):
+    return x.data.cpu().numpy()
 
 class Trainer():
     def __init__(self, config):
@@ -30,7 +38,7 @@ class Trainer():
             "num_vocab": num_vocab,
             "embedding_dim": config.embed_dim,
             "sentence_size": sentence_size,
-            "max_hops": config.max_hops
+            "max_hops": 1
         }
 
         print("Longest sentence length", sentence_size)
@@ -58,6 +66,25 @@ class Trainer():
                 train_acc = self.evaluate("train")
                 test_acc = self.evaluate("test")
                 print(epoch+1, loss, train_acc, test_acc)
+
+                # ============ TensorBoard logging ============#
+                # (1) Log the scalar values
+                info = {
+                    'loss': loss,
+                    'train accuracy': train_acc,
+                    'test accuracy': test_acc
+                }
+
+                for tag, value in info.items():
+                    logger.scalar_summary(tag, value, epoch)
+
+                # (2) Log values and gradients of the parameters (histogram)
+                for tag, value in self.mem_n2n.named_parameters():
+                    tag = tag.replace('.', '/')
+                    logger.histo_summary(tag, to_np(value), epoch)
+                    if value.grad is not None:
+                        logger.histo_summary(tag + '/grad', to_np(value.grad), epoch)
+
         print(train_acc, test_acc)
 
     def load(self, directory):
@@ -79,9 +106,13 @@ class Trainer():
 
             pred_prob = self.mem_n2n(captions, question)[1]
             _, output_max_index = torch.max(pred_prob, 1)
-            correct = correct + (answer == output_max_index).float().sum()
-            if step > 3:
-                break
+            # TODO
+            if output_max_index.sum().data[0] != 0:
+                print("OK!" + str(output_max_index.sum().data[0]))
+            else:
+                print("NOPE")
+
+            correct = correct + (answer == output_max_index).float().sum().data[0]
 
         acc = correct / len(loader.dataset)
         return acc

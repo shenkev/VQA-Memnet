@@ -4,6 +4,8 @@
 /birds/captions/
 /encoder/
 /birds/image_attribute_labels.txt
+/logs/
+/birds/image_class_labels.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -86,7 +86,7 @@ def load_simple_yes_no_qa_pairs_helper(qa_path, attributes):
     for qa_pair in qa_pairs:
         qa_pair[1] = attributes[qa_pair[1]]
 
-    max_questions = 200
+    max_questions = 32
     def answer_compare(a, b):
         if a[2] > b[2]:
             return -1

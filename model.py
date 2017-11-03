@@ -46,7 +46,12 @@ class MemN2N(nn.Module):
             self.add_module("C_{}".format(hop), C)
         self.C = AttrProxy(self, "C_")
 
-        self.fc1 = nn.Linear(embedding_dim, 2)
+        self.fc1 = nn.Linear(embedding_dim, 20)
+        self.fc1.weight.data.normal_(0.0, 0.1)
+        self.prelu = nn.PReLU()
+        self.fc2 = nn.Linear(20, 2)
+        self.fc2.weight.data.normal_(0.0, 0.1)
+
         self.softmax = nn.Softmax()
         self.encoding = Variable(torch.FloatTensor(
             position_encoding(sentence_size, embedding_dim)), requires_grad=False)
