@@ -89,7 +89,7 @@ class vqa_memnet(nn.Module):
     def __init__(self, vocabulary_size, text_latent_size, words_in_question):
         super(vqa_memnet, self).__init__()
 
-        # self.position_encoding = get_position_encoding(words_in_question, text_latent_size)
+        self.position_encoding = get_position_encoding(words_in_question, text_latent_size)
 
         # self.temporal_enc1 = Parameter(torch.Tensor(num_of_evidences, text_latent_size))
         # self.temporal_enc2 = Parameter(torch.Tensor(num_of_evidences, text_latent_size))
