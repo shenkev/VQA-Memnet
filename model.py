@@ -121,6 +121,7 @@ class vqa_memnet(nn.Module):
         weighted_evidence = mean_pool(evidence_feature_emb, weights)
 
         # features = torch.cat((weighted_evidence, question_emb.squeeze(0)), 1)
+        #features = weighted_evidence + question_emb.squeeze(0)
         features = weighted_evidence + question_emb.squeeze(0)
 
         if logger is not None:

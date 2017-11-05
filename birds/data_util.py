@@ -169,9 +169,9 @@ def load_simple_yes_no_qa_pairs(dataset_dir):
         <answer> - 0 or 1 corresponding to True or False
     '''
 
-    train_path = os.path.join(dataset_dir, "simple_yes_no_train.txt")
-    val_path = os.path.join(dataset_dir, "simple_yes_no_val.txt")
-    test_path = os.path.join(dataset_dir, "simple_yes_no_test.txt")
+    train_path = os.path.join(dataset_dir, "simple_yes_no_train_80_ceil_0_floor.txt")
+    val_path = os.path.join(dataset_dir, "simple_yes_no_val_80_ceil_0_floor.txt")
+    test_path = os.path.join(dataset_dir, "simple_yes_no_test_80_ceil_0_floor.txt")
     
     attributes = load_attributes(dataset_dir)  
 

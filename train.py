@@ -9,7 +9,7 @@ from logger import Logger
 import pdb
 
 # Set the logger
-run_name = 'big'
+run_name = 'threshold_80_ceil_0_floor'
 logger = Logger('./logs/' + run_name)
 
 def parse_config():
@@ -127,7 +127,7 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
             # captions = torch.index_select(captions, 1, torch.LongTensor(range(0, 10)).cuda())
             # captions = torch.index_select(captions, 2, torch.LongTensor(range(0, 20)).cuda())
             question = to_var(question)
-            question = torch.index_select(question, 1, torch.LongTensor(range(0, 7)).cuda())
+            #question = torch.index_select(question, 1, torch.LongTensor(range(0, 7)).cuda())
             answer = to_var(answer)
             _, answer = torch.max(answer, 1)
 
@@ -158,7 +158,7 @@ def evaluate(net, loader):
         # captions = torch.index_select(captions, 1, torch.LongTensor(range(0, 10)).cuda())
         # captions = torch.index_select(captions, 2, torch.LongTensor(range(0, 20)).cuda())
         question = to_var(question)
-        question = torch.index_select(question, 1, torch.LongTensor(range(0, 7)).cuda())
+        #question = torch.index_select(question, 1, torch.LongTensor(range(0, 7)).cuda())
         answer = to_var(answer)
         _, answer = torch.max(answer, 1)
 
