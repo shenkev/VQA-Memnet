@@ -16,7 +16,7 @@ def parse_config():
                         help='the batch size for each training iteration using a variant of stochastic gradient descent')
     parser.add_argument("--text_latent_size", type=int, default=30,
                         help='the size of text embedding for question and evidence')
-    parser.add_argument("--epochs", type=int, default=100,
+    parser.add_argument("--epochs", type=int, default=1000,
                         help='the number of epochs to train for')
     parser.add_argument("--lr", type=float, default=0.001,
                         help='the starting learning rate for the optimizer')
@@ -29,7 +29,7 @@ def parse_config():
 def load_data(batch_size, dataset_dir='/Users/atef/VQA-Memnet/birds'):
 
     train_data = birdCaptionSimpleYesNoDataset(dataset_dir=dataset_dir, limit_to_species=True, dataset_type="train")
-    train_loader = DataLoader(train_data, batch_size=batch_size, num_workers=1, shuffle=False)
+    train_loader = DataLoader(train_data, batch_size=batch_size, num_workers=1, shuffle=True)
 
     # val_data = birdCaptionSimpleYesNoDataset(dataset_dir=dataset_dir, limit_to_species=False, dataset_type="val")
     # val_loader = DataLoader(val_data, batch_size=batch_size, num_workers=1, shuffle=False)
@@ -127,6 +127,7 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
 
             total_step = total_step + 1
             if (total_step) % 100 == 0:
+                pdb.set_trace()
                 train_acc = evaluate(net, train_loader)
                 test_acc = evaluate(net, test_loader)
                 print(total_step, batch_loss, train_acc, test_acc)
@@ -138,7 +139,7 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
 
 
 def evaluate(net, loader):
-    correct = 0
+    correct = 0.0
     total = 0
 
     for step, (captions_species, captions, question_species, question, answer) in enumerate(loader):
@@ -149,15 +150,14 @@ def evaluate(net, loader):
 
         output = net(captions, question)
         _, output_max_index = torch.max(output, 1)
-        correct += (answer == output_max_index).float().sum()  # really weird, without float() this counter resets to 0
+        correct += (answer == output_max_index).float().sum().data[0]  # really weird, without float() this counter resets to 0
 
-        total += 32
-        if step > 100:  # prevent out-of-memory error
-            break
+        # if step > 100:  # prevent out-of-memory error
+        #     break
 
-    #acc = float(correct.data[0]) / len(loader.dataset)
+    acc = correct / len(loader.dataset)
     #acc = float(correct.data[0])/(32.0 * step) # 32 is batch size
-    acc = float(correct.data[0])/(total)
+    #acc = float(correct.data[0])/(total)
 
     return acc
 
