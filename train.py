@@ -9,7 +9,7 @@ from logger import Logger
 import pdb
 
 # Set the logger
-run_name = 'run'
+run_name = 'big'
 logger = Logger('./logs/' + run_name)
 
 def parse_config():
@@ -18,7 +18,7 @@ def parse_config():
                         help='the path to the directory of the data')
     parser.add_argument("--batch_size", type=int, default=32,
                         help='the batch size for each training iteration using a variant of stochastic gradient descent')
-    parser.add_argument("--text_latent_size", type=int, default=50,
+    parser.add_argument("--text_latent_size", type=int, default=114,
                         help='the size of text embedding for question and evidence')
     parser.add_argument("--epochs", type=int, default=1000,
                         help='the number of epochs to train for')
@@ -74,6 +74,10 @@ def to_var(x):
     return Variable(x)
 
 
+def to_np(x):
+    return x.data.cpu().numpy()
+
+
 def load_model(vocabulary_size, text_latent_size, words_in_sentence):
     net = vqa_memnet(vocabulary_size, text_latent_size, words_in_sentence)
     if torch.cuda.is_available():
@@ -88,30 +92,10 @@ def save_weights(net, path):
 def load_weights(net, path):
     net.load_state_dict(torch.load(path))
 
-    def evaluate(self, data="test"):
-        correct = 0
-        loader = self.train_loader if data == "train" else self.test_loader
-        for step, (story, query, answer) in enumerate(loader):
-            story = Variable(story)
-            query = Variable(query)
-            answer = Variable(answer)
-
-            if self.config.cuda:
-                story = story.cuda()
-                query = query.cuda()
-                answer = answer.cuda()
-
-            pred_prob = self.mem_n2n(story, query)[1]
-            pred = pred_prob.data.max(1)[1] # max func return (max, argmax)
-            correct += pred.eq(answer.data).cpu().sum()
-
-        acc = float(correct) / len(loader.dataset)
-        return acc
-
 
 def step(net, optimizer, criterion, evidence, question, answer, step_num):
     optimizer.zero_grad()
-    output = net(evidence, question)
+    output = net(evidence, question, logger, step_num)
     loss = criterion(output, answer)
     loss.backward()
     gradient_noise_and_clip(net.parameters())
@@ -120,7 +104,7 @@ def step(net, optimizer, criterion, evidence, question, answer, step_num):
     return loss.data[0]
 
 
-def gradient_noise_and_clip(parameters, noise_stddev=1e-4, max_clip=40.0):
+def gradient_noise_and_clip(parameters, noise_stddev=1e-3, max_clip=40.0):
     parameters = list(filter(lambda p: p.grad is not None, parameters))
     nn.utils.clip_grad_norm(parameters, max_clip)
 
@@ -129,10 +113,6 @@ def gradient_noise_and_clip(parameters, noise_stddev=1e-4, max_clip=40.0):
         if torch.cuda.is_available():
             noise = noise.cuda()
         p.grad.data.add_(noise)
-
-
-def to_np(x):
-    return x.data.cpu().numpy()
 
 
 def train(epochs, train_loader, test_loader, net, optimizer, criterion):
@@ -147,7 +127,7 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
             # captions = torch.index_select(captions, 1, torch.LongTensor(range(0, 10)).cuda())
             # captions = torch.index_select(captions, 2, torch.LongTensor(range(0, 20)).cuda())
             question = to_var(question)
-            # question = torch.index_select(question, 1, torch.LongTensor(range(0, 7)).cuda())
+            question = torch.index_select(question, 1, torch.LongTensor(range(0, 7)).cuda())
             answer = to_var(answer)
             _, answer = torch.max(answer, 1)
 
@@ -155,7 +135,6 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
             epoch_loss += batch_loss
 
             if (total_step) % 100 == 0:
-                #pdb.set_trace()
                 train_acc = evaluate(net, train_loader)
                 test_acc = evaluate(net, test_loader)
                 print(total_step, batch_loss, train_acc, test_acc)
@@ -174,7 +153,12 @@ def evaluate(net, loader):
 
     for step, (captions_species, captions, question_species, question, answer) in enumerate(loader):
         captions = to_var(captions)
+
+        # TODO see if varying number of captions helps training
+        # captions = torch.index_select(captions, 1, torch.LongTensor(range(0, 10)).cuda())
+        # captions = torch.index_select(captions, 2, torch.LongTensor(range(0, 20)).cuda())
         question = to_var(question)
+        question = torch.index_select(question, 1, torch.LongTensor(range(0, 7)).cuda())
         answer = to_var(answer)
         _, answer = torch.max(answer, 1)
 
@@ -199,7 +183,6 @@ if __name__ == "__main__":
     #pdb.set_trace()
     train_loader, test_loader, vocabulary_size, words_in_sentence = load_data(batch_size)
 
-    words_in_sentence = 20
     net = load_model(vocabulary_size, text_latent_size, words_in_sentence)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(net.parameters(), lr=learn_rate)

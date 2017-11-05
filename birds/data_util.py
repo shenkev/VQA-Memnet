@@ -157,7 +157,6 @@ def load_simple_yes_no_qa_pairs_helper(qa_path, attributes):
     # qa_pairs = qa_pairs[0:min(end_of_ones_idx, max_questions/2)] \
     #            + qa_pairs[end_of_ones_idx: min(2*end_of_ones_idx, end_of_ones_idx+max_questions/2)]
 
-
     return [tuple(qa_pair) for qa_pair in qa_pairs]
 
 
