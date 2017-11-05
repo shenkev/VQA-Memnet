@@ -137,7 +137,7 @@ def load_simple_yes_no_qa_pairs_helper(qa_path, attributes):
         qa_pair[1] = attributes[qa_pair[1]]
 
     # TODO fix this up, this is hacky
-    max_questions = 50000
+    max_questions = 5000
 
     # Python 3 Version
     # qa_pairs.sort(key= lambda qa_pair: qa_pair[2])
