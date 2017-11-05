@@ -49,7 +49,7 @@ def tensorboard_logging(batch_loss, train_acc, test_acc, net, iteration):
             logger.histo_summary(tag + '/grad', to_np(value.grad), iteration)
 
 
-def load_data(batch_size, dataset_dir='/home/shenkev/School/VQA-Memnet/birds'):
+def load_data(batch_size, dataset_dir='/Users/atef/VQA-Memnet/birds'):
 
     train_data = birdCaptionSimpleYesNoDataset(dataset_dir=dataset_dir, limit_to_species=True, dataset_type="train")
     train_loader = DataLoader(train_data, batch_size=batch_size, num_workers=1, shuffle=True)
@@ -155,7 +155,7 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
             epoch_loss += batch_loss
 
             if (total_step) % 100 == 0:
-                pdb.set_trace()
+                #pdb.set_trace()
                 train_acc = evaluate(net, train_loader)
                 test_acc = evaluate(net, test_loader)
                 print(total_step, batch_loss, train_acc, test_acc)

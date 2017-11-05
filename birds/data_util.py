@@ -5,24 +5,24 @@ import string
 import pdb
 
 # Python 2 version
+# class punctuation_stripper(object):
+
+#     def __init__(self):
+#         self.to_space = re.compile('(-|_|::|/)')
+#         # self.to_remove = string.maketrans('', '')
+
+#     def strip(self, sentence):
+#         return (self.to_space.sub(' ', sentence).translate(None, string.punctuation))
+
+# Python 3 Version
 class punctuation_stripper(object):
 
     def __init__(self):
         self.to_space = re.compile('(-|_|::|/)')
-        # self.to_remove = string.maketrans('', '')
+        self.to_remove = str.maketrans('', '', string.punctuation)
 
     def strip(self, sentence):
-        return (self.to_space.sub(' ', sentence).translate(None, string.punctuation))
-
-# Python 3 Version
-# class punctuation_stripper(object):
-#
-#     def __init__(self):
-#         self.to_space = re.compile('(-|_|::|/)')
-#         self.to_remove = str.maketrans('', '', string.punctuation)
-#
-#     def strip(self, sentence):
-#         return (self.to_space.sub(' ', sentence).translate(self.to_remove))
+        return (self.to_space.sub(' ', sentence).translate(self.to_remove))
 
 
 def load_captions(dataset_dir):
