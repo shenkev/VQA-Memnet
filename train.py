@@ -9,7 +9,7 @@ from logger import Logger
 import pdb
 
 # Set the logger
-run_name = 'atest'
+run_name = 'threshold_80_ceil_0_floor'
 logger = Logger('./logs/' + run_name)
 
 def parse_config():
@@ -20,7 +20,7 @@ def parse_config():
                         help='the batch size for each training iteration using a variant of stochastic gradient descent')
     parser.add_argument("--text_latent_size", type=int, default=50,
                         help='the size of text embedding for question and evidence')
-    parser.add_argument("--epochs", type=int, default=100,
+    parser.add_argument("--epochs", type=int, default=1000,
                         help='the number of epochs to train for')
     parser.add_argument("--lr", type=float, default=0.001,
                         help='the starting learning rate for the optimizer')
@@ -49,7 +49,7 @@ def tensorboard_logging(batch_loss, train_acc, test_acc, net, iteration):
             logger.histo_summary(tag + '/grad', to_np(value.grad), iteration)
 
 
-def load_data(batch_size, dataset_dir='/home/shenkev/School/VQA-Memnet/birds'):
+def load_data(batch_size, dataset_dir='/Users/atef/VQA-Memnet/birds'):
 
     train_data = birdCaptionSimpleYesNoDataset(dataset_dir=dataset_dir, limit_to_species=True, dataset_type="train")
     train_loader = DataLoader(train_data, batch_size=batch_size, num_workers=1, shuffle=True)
@@ -127,7 +127,7 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
             # captions = torch.index_select(captions, 1, torch.LongTensor(range(0, 10)).cuda())
             # captions = torch.index_select(captions, 2, torch.LongTensor(range(0, 20)).cuda())
             question = to_var(question)
-            question = torch.index_select(question, 1, torch.LongTensor(range(0, 7)).cuda())
+            #question = torch.index_select(question, 1, torch.LongTensor(range(0, 7)).cuda())
             answer = to_var(answer)
             _, answer = torch.max(answer, 1)
 
@@ -159,13 +159,13 @@ def evaluate(net, loader):
         # captions = torch.index_select(captions, 1, torch.LongTensor(range(0, 10)).cuda())
         # captions = torch.index_select(captions, 2, torch.LongTensor(range(0, 20)).cuda())
         question = to_var(question)
-        question = torch.index_select(question, 1, torch.LongTensor(range(0, 7)).cuda())
+        #question = torch.index_select(question, 1, torch.LongTensor(range(0, 7)).cuda())
         answer = to_var(answer)
         _, answer = torch.max(answer, 1)
 
         output = net(captions, question)
         _, output_max_index = torch.max(output, 1)
-        correct = correct + (answer == output_max_index).float().sum().data[0]
+        correct += (answer == output_max_index).float().sum().data[0]  # really weird, without float() this counter resets to 
 
     acc = correct / len(loader.dataset)
 

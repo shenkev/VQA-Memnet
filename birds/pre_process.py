@@ -25,7 +25,7 @@ def write_questions_to_file(questions, filepath):
             f.write("{}\n".format(question_str))
 
 
-def generate_simple_yes_no_questions(data_dir, is_present_threshold, val_percentage, test_percentage):
+def generate_simple_yes_no_questions(data_dir, is_present_threshold, use_two_thresholds, val_percentage, test_percentage):
 
     '''
     generate simple yes-no questions of the form class and attribute 
@@ -57,16 +57,22 @@ def generate_simple_yes_no_questions(data_dir, is_present_threshold, val_percent
     for species_id, line in enumerate(lines, 1):  
         attribute_present_percentages = line.split()
         for attribute_id, present_percentage in enumerate(attribute_present_percentages, 1):
-            is_present = int(is_present_threshold*100 <= float(present_percentage)) # multiply by 100 since file stores percentage values
-            questions.append((species_id, attribute_id, is_present))
+            if use_two_thresholds:
+                if 0.01 > float(present_percentage):
+                    questions.append((species_id, attribute_id, 0))
+                if (is_present_threshold)*100 < float(present_percentage):
+                    questions.append((species_id, attribute_id, 1))
+            else:
+                is_present = int(is_present_threshold*100 <= float(present_percentage)) # multiply by 100 since file stores percentage values
+                questions.append((species_id, attribute_id, is_present))
 
 
     questions_train, questions_holdout = train_test_split(questions, test_size = val_percentage + test_percentage)
     questions_val, questions_test = train_test_split(questions_holdout, test_size = test_percentage / (val_percentage+test_percentage))
 
-    train_path = os.path.join(data_dir, "simple_yes_no_train.txt")
-    val_path = os.path.join(data_dir, "simple_yes_no_val.txt")
-    test_path = os.path.join(data_dir, "simple_yes_no_test.txt")
+    train_path = os.path.join(data_dir, "simple_yes_no_train_80_ceil_0_floor.txt")
+    val_path = os.path.join(data_dir, "simple_yes_no_val_80_ceil_0_floor.txt")
+    test_path = os.path.join(data_dir, "simple_yes_no_test_80_ceil_0_floor.txt")
 
     write_questions_to_file(questions_train, train_path)
     write_questions_to_file(questions_val, val_path)
@@ -79,7 +85,9 @@ if __name__ == '__main__':
 
     arg_parser.add_argument("--data_dir", type=str, default="./../birds/",
                             help="path to folder from where data is loaded")
-    arg_parser.add_argument("--is_present_threshold", type=float, default=0.1,
+    arg_parser.add_argument("--is_present_threshold", type=float, default=0.8,
+                            help="threshold to determine if an attribute is present")
+    arg_parser.add_argument("--use_two_thresholds", type=bool, default=True,
                             help="threshold to determine if an attribute is present")
     arg_parser.add_argument("--val_percentage", type=float, default=0.1,
                             help="percentage of data used for validation set")
@@ -89,6 +97,7 @@ if __name__ == '__main__':
 
     generate_simple_yes_no_questions(data_dir=args.data_dir,
                                      is_present_threshold=args.is_present_threshold,
+                                     use_two_thresholds=args.use_two_thresholds,
                                      val_percentage=args.val_percentage,
                                      test_percentage=args.test_percentage)
 
