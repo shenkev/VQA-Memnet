@@ -18,7 +18,7 @@ def parse_config():
                         help='the path to the directory of the data')
     parser.add_argument("--batch_size", type=int, default=32,
                         help='the batch size for each training iteration using a variant of stochastic gradient descent')
-    parser.add_argument("--text_latent_size", type=int, default=114,
+    parser.add_argument("--text_latent_size", type=int, default=50,
                         help='the size of text embedding for question and evidence')
     parser.add_argument("--epochs", type=int, default=1000,
                         help='the number of epochs to train for')
@@ -65,7 +65,7 @@ def load_data(batch_size, dataset_dir='/Users/atef/VQA-Memnet/birds'):
     print("Longest caption length", caption_length)
     print("Number of vocab", vocabulary_size)
 
-    return train_loader, test_loader, vocabulary_size, caption_length
+    return train_loader, test_loader, vocabulary_size, caption_length, train_data.word_idx
 
 
 def to_var(x):
@@ -78,8 +78,8 @@ def to_np(x):
     return x.data.cpu().numpy()
 
 
-def load_model(vocabulary_size, text_latent_size, words_in_sentence):
-    net = vqa_memnet(vocabulary_size, text_latent_size, words_in_sentence)
+def load_model(vocabulary_size, text_latent_size, words_in_sentence, word_dict):
+    net = vqa_memnet(vocabulary_size, text_latent_size, words_in_sentence, word_dict)
     if torch.cuda.is_available():
         net.cuda()
     return net
@@ -95,7 +95,7 @@ def load_weights(net, path):
 
 def step(net, optimizer, criterion, evidence, question, answer, step_num):
     optimizer.zero_grad()
-    output = net(evidence, question, logger, step_num)
+    output = net(evidence, question, logger, step_num, answer)
     loss = criterion(output, answer)
     loss.backward()
     gradient_noise_and_clip(net.parameters())
@@ -135,6 +135,7 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
             epoch_loss += batch_loss
 
             if (total_step) % 100 == 0:
+
                 train_acc = evaluate(net, train_loader)
                 test_acc = evaluate(net, test_loader)
                 print(total_step, batch_loss, train_acc, test_acc)
@@ -181,9 +182,10 @@ if __name__ == "__main__":
 
     weight_path = './Model/vqamemnet.pkl'
     #pdb.set_trace()
-    train_loader, test_loader, vocabulary_size, words_in_sentence = load_data(batch_size)
+    train_loader, test_loader, vocabulary_size, words_in_sentence, word_idx = load_data(batch_size)
+    word_dict = dict((v, k) for k, v in word_idx.iteritems())
 
-    net = load_model(vocabulary_size, text_latent_size, words_in_sentence)
+    net = load_model(vocabulary_size, text_latent_size, words_in_sentence, word_dict)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(net.parameters(), lr=learn_rate)
 

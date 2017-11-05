@@ -86,8 +86,10 @@ def mean_pool(x, weights):
 
 class vqa_memnet(nn.Module):
 
-    def __init__(self, vocabulary_size, text_latent_size, words_in_question):
+    def __init__(self, vocabulary_size, text_latent_size, words_in_question, word_dict):
         super(vqa_memnet, self).__init__()
+
+        self.word_dict = word_dict
 
         # self.position_encoding = get_position_encoding(words_in_question, text_latent_size)
 
@@ -109,7 +111,7 @@ class vqa_memnet(nn.Module):
 
         self.softmax = nn.Softmax()
 
-    def forward(self, evidence, question, logger=None, iter=None):
+    def forward(self, evidence, question, logger=None, iter=None, answer=None):
 
         question_emb = embed_question(question, self.question_emb)
         evidence_feature_emb, evidence_computation_emb = embed_evidence(evidence, self.question_emb, self.evidence_emb)
@@ -121,21 +123,41 @@ class vqa_memnet(nn.Module):
         weighted_evidence = mean_pool(evidence_feature_emb, weights)
 
         # features = torch.cat((weighted_evidence, question_emb.squeeze(0)), 1)
-        #features = weighted_evidence + question_emb.squeeze(0)
-        features = weighted_evidence + question_emb.squeeze(0)
+        # features = weighted_evidence + question_emb.squeeze(0)
+        features = weighted_evidence
 
-        if logger is not None:
+        if logger is not None and (iter) % 100 == 0:
             logger.histo_summary('H_question_emb', to_np(question_emb), iter)
             logger.histo_summary('H_evidence_computation_emb', to_np(evidence_computation_emb), iter)
             logger.histo_summary('H_evidence_feature_emb', to_np(evidence_feature_emb), iter)
             logger.histo_summary('H_max_weights', to_np(torch.max(weights, 1)[0]), iter)
             logger.histo_summary('H_features', to_np(features), iter)
 
+            question_str = [self.word_dict[x] for x in filter_zero(to_np(question[0]))]
+            attended_evidence = []
+            for i in range(evidence.size(1)):
+                evidence_str = [self.word_dict[x] for x in filter_zero(to_np(evidence[0, i]))]
+                attended_evidence.append((weights.data[0, i],
+                                          subfinder(evidence_str, question_str[1:]) != [],
+                                          evidence_str))
+            attended_evidence = sorted(attended_evidence, reverse=True)
+            print("Question: " + str(question_str) + " Answer: " + str(answer.data[0]))
+            for p in attended_evidence: print p
+
         output = self.fc1(features)
         # output = self.prelu(output)
         # output = self.fc2(output)
         return output
 
+def subfinder(mylist, pattern):
+    matches = []
+    for i in range(len(mylist)):
+        if mylist[i] == pattern[0] and mylist[i:i+len(pattern)] == pattern:
+            matches.append(pattern)
+    return matches
+
+def filter_zero(x):
+    return [e for e in x if e != 0]
 
 def to_np(x):
     return x.data.cpu().numpy()
