@@ -5,6 +5,7 @@ from torch.autograd import Variable
 from model import vqa_memnet
 from torch.utils.data import DataLoader
 from birds.dataset import birdCaptionSimpleYesNoDataset
+from synthetic.dataset import SyntheticDataset
 from logger import Logger
 import pdb
 
@@ -49,7 +50,7 @@ def tensorboard_logging(batch_loss, train_acc, test_acc, net, iteration):
             logger.histo_summary(tag + '/grad', to_np(value.grad), iteration)
 
 
-def load_data(batch_size, dataset_dir='/home/shenkev/School/VQA-Memnet/birds'):
+def load_bird_data(batch_size, dataset_dir='/home/shenkev/School/VQA-Memnet/birds'):
 
     train_data = birdCaptionSimpleYesNoDataset(dataset_dir=dataset_dir, limit_to_species=True, dataset_type="train")
     train_loader = DataLoader(train_data, batch_size=batch_size, num_workers=1, shuffle=True)
@@ -66,6 +67,20 @@ def load_data(batch_size, dataset_dir='/home/shenkev/School/VQA-Memnet/birds'):
     print("Number of vocab", vocabulary_size)
 
     return train_loader, test_loader, vocabulary_size, caption_length, train_data.word_idx
+
+
+def load_synthetic_data(batch_size, datatset_dir='/home/shenkev/School/VQA-Memnet/synthetic'):
+
+    train_data = SyntheticDataset(path_to_dataset=datatset_dir, dataset_type='train')
+    train_loader = DataLoader(train_data, batch_size=batch_size, num_workers=1, shuffle=True)
+
+    test_data = SyntheticDataset(path_to_dataset=datatset_dir, dataset_type='test')
+    test_loader = DataLoader(test_data, batch_size=batch_size, num_workers=1, shuffle=True)
+
+    bin_vec_len = train_data.sentence_size
+    print("Each image/clue is a binary vector of length {}".format(str(bin_vec_len)))
+
+    return train_loader, test_loader, bin_vec_len
 
 
 def to_var(x):
@@ -177,7 +192,6 @@ def evaluate(net, loader):
         correct += cor_tot.float().sum().data[0]  # really weird, without float() this counter resets to
         correct_zero += (cor_tot.float().sum().data[0] - cor_zero.float().sum().data[0])
         correct_one += cor_zero.float().sum().data[0]
-        test = 1
 
     acc = correct / len(loader.dataset)
     acc_zero = correct_zero / (0.5*len(loader.dataset))
@@ -196,7 +210,7 @@ if __name__ == "__main__":
 
     weight_path = './Model/vqamemnet.pkl'
     #pdb.set_trace()
-    train_loader, test_loader, vocabulary_size, words_in_sentence, word_idx = load_data(batch_size)
+    train_loader, test_loader, vocabulary_size, words_in_sentence, word_idx = load_bird_data(batch_size)
     word_dict = dict((v, k) for k, v in word_idx.items())
 
     net = load_model(vocabulary_size, text_latent_size, words_in_sentence, word_dict)
