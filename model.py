@@ -123,8 +123,8 @@ class vqa_memnet(nn.Module):
         weighted_evidence = mean_pool(evidence_feature_emb, weights)
 
         # features = torch.cat((weighted_evidence, question_emb.squeeze(0)), 1)
-        # features = weighted_evidence + question_emb.squeeze(0)
-        features = weighted_evidence
+        features = weighted_evidence + question_emb.squeeze(0)
+        #features = weighted_evidence
 
         if logger is not None and (iter) % 100 == 0:
             logger.histo_summary('H_question_emb', to_np(question_emb), iter)
@@ -142,7 +142,7 @@ class vqa_memnet(nn.Module):
                                           evidence_str))
             attended_evidence = sorted(attended_evidence, reverse=True)
             print("Question: " + str(question_str) + " Answer: " + str(answer.data[0]))
-            for p in attended_evidence: print p
+            for p in attended_evidence: print(p)
 
         output = self.fc1(features)
         # output = self.prelu(output)
