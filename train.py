@@ -7,11 +7,15 @@ from torch.utils.data import DataLoader
 from birds.dataset import birdCaptionSimpleYesNoDataset
 from synthetic.dataset import SyntheticDataset
 from logger import Logger
+from html import HTML
+import os
+
 import pdb
 
 # Set the logger
 run_name = 'synthetic1'
 logger = Logger('./logs/' + run_name)
+htm = HTML('html', 'Experiment')
 
 def parse_config():
     parser = argparse.ArgumentParser()
@@ -21,7 +25,7 @@ def parse_config():
                         help='the batch size for each training iteration using a variant of stochastic gradient descent')
     parser.add_argument("--text_latent_size", type=int, default=50,
                         help='the size of text embedding for question and evidence')
-    parser.add_argument("--epochs", type=int, default=1000,
+    parser.add_argument("--epochs", type=int, default=2,
                         help='the number of epochs to train for')
     parser.add_argument("--lr", type=float, default=0.001,
                         help='the starting learning rate for the optimizer')
@@ -159,6 +163,9 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
                 print(total_step, batch_loss, train_acc, test_acc)
                 tensorboard_logging(batch_loss, train_acc[0], test_acc[0], net, total_step)
 
+                htm.p("Step: {}, Loss: {}, Train_Accuracy[total, 0's, 1's]: {}, Test Accuracy: {}"
+                         .format(total_step, batch_loss, train_acc, test_acc))
+
                 net.train()
 
             total_step = total_step + 1
@@ -229,3 +236,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(net.parameters(), lr=learn_rate)
 
     train(epochs, train_loader, test_loader, net, optimizer, criterion)
+    html_file = open("./html/{}.html".format(run_name), "w")
+    html_file.write(str(htm))
+    html_file.close()
+
