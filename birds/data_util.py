@@ -5,24 +5,24 @@ import string
 import pdb
 
 # Python 2 version
-# class punctuation_stripper(object):
-
-#     def __init__(self):
-#         self.to_space = re.compile('(-|_|::|/)')
-#         # self.to_remove = string.maketrans('', '')
-
-#     def strip(self, sentence):
-#         return (self.to_space.sub(' ', sentence).translate(None, string.punctuation))
-
-# Python 3 Version
 class punctuation_stripper(object):
 
     def __init__(self):
         self.to_space = re.compile('(-|_|::|/)')
-        self.to_remove = str.maketrans('', '', string.punctuation)
+        # self.to_remove = string.maketrans('', '')
 
     def strip(self, sentence):
-        return (self.to_space.sub(' ', sentence).translate(self.to_remove))
+        return (self.to_space.sub(' ', sentence).translate(None, string.punctuation))
+
+# Python 3 Version
+# class punctuation_stripper(object):
+#
+#     def __init__(self):
+#         self.to_space = re.compile('(-|_|::|/)')
+#         self.to_remove = str.maketrans('', '', string.punctuation)
+#
+#     def strip(self, sentence):
+#         return (self.to_space.sub(' ', sentence).translate(self.to_remove))
 
 
 def load_captions(dataset_dir):
@@ -137,27 +137,28 @@ def load_simple_yes_no_qa_pairs_helper(qa_path, attributes):
         qa_pair[1] = attributes[qa_pair[1]]
 
     # TODO fix this up, this is hacky
-    max_questions = 5000
+    max_questions = 25000
 
-    # Python 3 Version
-    qa_pairs.sort(key= lambda qa_pair: qa_pair[2])
-    end_of_ones_idx = next(i for i, v in enumerate(qa_pairs) if v[2]==1)
-    qa_pairs = qa_pairs[0:min(end_of_ones_idx, int(max_questions/2))] \
-               + qa_pairs[end_of_ones_idx: min(2*end_of_ones_idx, end_of_ones_idx+int(max_questions/2))]
+    # # Python 3 Version
+    # qa_pairs.sort(key= lambda qa_pair: qa_pair[2])
+    # end_of_ones_idx = next(i for i, v in enumerate(qa_pairs) if v[2]==1)
+    # qa_pairs = qa_pairs[0:min(end_of_ones_idx, int(max_questions/2))] \
+    #            + qa_pairs[end_of_ones_idx: min(2*end_of_ones_idx, end_of_ones_idx+int(max_questions/2))]
  
 
     # Python 2 Version
-    # def answer_compare(a, b):
-    #     if a[2] > b[2]:
-    #         return -1
-    #     else:
-    #         return 1
+    def answer_compare(a, b):
+        if a[2] > b[2]:
+            return -1
+        else:
+            return 1
 
-    # # TODO fix this up, this is hacky
-    # qa_pairs.sort(cmp=answer_compare)
-    # end_of_ones_idx = (i for i, v in enumerate(qa_pairs) if v[2]==0).next()
-    # qa_pairs = qa_pairs[0:min(end_of_ones_idx, max_questions/2)] \
-    #            + qa_pairs[end_of_ones_idx: min(2*end_of_ones_idx, end_of_ones_idx+max_questions/2)]
+    # TODO fix this up, this is hacky
+    qa_pairs.sort(cmp=answer_compare)
+    end_of_ones_idx = (i for i, v in enumerate(qa_pairs) if v[2]==0).next()
+    print("There are " + str(end_of_ones_idx) + " True answers and " + str(len(qa_pairs)-end_of_ones_idx) + " False")
+    qa_pairs = qa_pairs[0:min(end_of_ones_idx, max_questions/2)] \
+               + qa_pairs[end_of_ones_idx: min(2*end_of_ones_idx, end_of_ones_idx+max_questions/2)]
 
     return [tuple(qa_pair) for qa_pair in qa_pairs]
 
@@ -171,9 +172,9 @@ def load_simple_yes_no_qa_pairs(dataset_dir):
         <answer> - 0 or 1 corresponding to True or False
     '''
 
-    train_path = os.path.join(dataset_dir, "simple_yes_no_train_80_ceil_0_floor.txt")
-    val_path = os.path.join(dataset_dir, "simple_yes_no_val_80_ceil_0_floor.txt")
-    test_path = os.path.join(dataset_dir, "simple_yes_no_test_80_ceil_0_floor.txt")
+    train_path = os.path.join(dataset_dir, "simple_yes_no_train_10_ceil_0_floor.txt")
+    val_path = os.path.join(dataset_dir, "simple_yes_no_val_10_ceil_0_floor.txt")
+    test_path = os.path.join(dataset_dir, "simple_yes_no_test_10_ceil_0_floor.txt")
     
     attributes = load_attributes(dataset_dir)  
 

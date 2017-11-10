@@ -49,7 +49,7 @@ def tensorboard_logging(batch_loss, train_acc, test_acc, net, iteration):
             logger.histo_summary(tag + '/grad', to_np(value.grad), iteration)
 
 
-def load_data(batch_size, dataset_dir='/Users/atef/VQA-Memnet/birds'):
+def load_data(batch_size, dataset_dir='/home/shenkev/School/VQA-Memnet/birds'):
 
     train_data = birdCaptionSimpleYesNoDataset(dataset_dir=dataset_dir, limit_to_species=True, dataset_type="train")
     train_loader = DataLoader(train_data, batch_size=batch_size, num_workers=1, shuffle=True)
@@ -125,7 +125,7 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
 
             # TODO see if varying number of captions helps training
             # captions = torch.index_select(captions, 1, torch.LongTensor(range(0, 10)).cuda())
-            # captions = torch.index_select(captions, 2, torch.LongTensor(range(0, 20)).cuda())
+            # captions = torch.index_select(captions, 2, torch.LongTensor(range(0, 50)).cuda())
             question = to_var(question)
             #question = torch.index_select(question, 1, torch.LongTensor(range(0, 7)).cuda())
             answer = to_var(answer)
@@ -139,7 +139,9 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
                 train_acc = evaluate(net, train_loader)
                 test_acc = evaluate(net, test_loader)
                 print(total_step, batch_loss, train_acc, test_acc)
-                tensorboard_logging(batch_loss, train_acc, test_acc, net, total_step)
+                tensorboard_logging(batch_loss, train_acc[0], test_acc[0], net, total_step)
+
+                net.train()
 
             total_step = total_step + 1
 
@@ -151,13 +153,16 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
 
 def evaluate(net, loader):
     correct = 0.0
+    correct_zero = 0.0
+    correct_one = 0.0
 
+    net.eval()
     for step, (captions_species, captions, question_species, question, answer) in enumerate(loader):
         captions = to_var(captions)
 
         # TODO see if varying number of captions helps training
         # captions = torch.index_select(captions, 1, torch.LongTensor(range(0, 10)).cuda())
-        # captions = torch.index_select(captions, 2, torch.LongTensor(range(0, 20)).cuda())
+        # captions = torch.index_select(captions, 2, torch.LongTensor(range(0, 50)).cuda())
         question = to_var(question)
         #question = torch.index_select(question, 1, torch.LongTensor(range(0, 7)).cuda())
         answer = to_var(answer)
@@ -165,11 +170,20 @@ def evaluate(net, loader):
 
         output = net(captions, question)
         _, output_max_index = torch.max(output, 1)
-        correct += (answer == output_max_index).float().sum().data[0]  # really weird, without float() this counter resets to 
+
+        cor_tot = (answer == output_max_index)
+        cor_zero = answer[cor_tot]
+
+        correct += cor_tot.float().sum().data[0]  # really weird, without float() this counter resets to
+        correct_zero += (cor_tot.float().sum().data[0] - cor_zero.float().sum().data[0])
+        correct_one += cor_zero.float().sum().data[0]
+        test = 1
 
     acc = correct / len(loader.dataset)
+    acc_zero = correct_zero / (0.5*len(loader.dataset))
+    acc_one = correct_one / (0.5*len(loader.dataset))
 
-    return acc
+    return acc, acc_zero, acc_one
 
 
 if __name__ == "__main__":
