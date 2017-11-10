@@ -2,11 +2,12 @@ import os
 import argparse
 import random
 import pickle
+from sklearn.model_selection import train_test_split
 
 import pdb
 
 
-def generate_synthetic_data(num_species, num_attributes, num_clues_per_species):
+def generate_synthetic_data(num_species, num_attributes, num_clues_per_species, test_percentage):
     '''
     Make synthetic data (species and attibutes are zero indexed)
 
@@ -50,7 +51,10 @@ def generate_synthetic_data(num_species, num_attributes, num_clues_per_species):
             for clue_id in selected_clues:
                 species_clues[species_id][clue_id][attribute_id] = 1
 
-    return species_clues, questions
+    # Get train vs test data
+    questions_train, questions_test = train_test_split(questions, test_size = test_percentage)
+
+    return species_clues, questions_train, questions_test
 
 
 if __name__ == '__main__':
@@ -63,14 +67,17 @@ if __name__ == '__main__':
                             help="number of attributes")
     arg_parser.add_argument("--num_clues_per_species", type=float, default=100,
                             help="number of clues per species")
+    arg_parser.add_argument("--test_percentage", type=float, default=0.1,
+                            help="percentage of quetsions to use for testing")
 
     args = arg_parser.parse_args()
 
-    species_clues, questions = generate_synthetic_data(num_species=args.num_species,
+    species_clues, questions_train, questions_test = generate_synthetic_data(num_species=args.num_species,
                                                        num_attributes=args.num_attributes,
-                                                       num_clues_per_species=args.num_clues_per_species)
+                                                       num_clues_per_species=args.num_clues_per_species,
+                                                       test_percentage=args.test_percentage)
 
 
-    pickle.dump([species_clues, questions],
+    pickle.dump([species_clues, questions_train, questions_test, args.num_species, args.num_attributes, args.num_clues_per_species],
                  open( "synthetic_data_{}_species_{}_attributes_{}_clues.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
 
