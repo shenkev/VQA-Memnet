@@ -9,7 +9,7 @@ from logger import Logger
 import pdb
 
 # Set the logger
-run_name = 'threshold_80_ceil_0_floor'
+run_name = 'threshold_05_ceil_0_floor'
 logger = Logger('./logs/' + run_name)
 
 def parse_config():
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     weight_path = './Model/vqamemnet.pkl'
     #pdb.set_trace()
     train_loader, test_loader, vocabulary_size, words_in_sentence, word_idx = load_data(batch_size)
-    word_dict = dict((v, k) for k, v in word_idx.iteritems())
+    word_dict = dict((v, k) for k, v in word_idx.items())
 
     net = load_model(vocabulary_size, text_latent_size, words_in_sentence, word_dict)
     criterion = nn.CrossEntropyLoss()

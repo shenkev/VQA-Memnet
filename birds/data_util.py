@@ -137,7 +137,7 @@ def load_simple_yes_no_qa_pairs_helper(qa_path, attributes):
         qa_pair[1] = attributes[qa_pair[1]]
 
     # TODO fix this up, this is hacky
-    max_questions = 25000
+    max_questions = 500
 
     # # Python 3 Version
     # qa_pairs.sort(key= lambda qa_pair: qa_pair[2])
@@ -172,10 +172,10 @@ def load_simple_yes_no_qa_pairs(dataset_dir):
         <answer> - 0 or 1 corresponding to True or False
     '''
 
-    train_path = os.path.join(dataset_dir, "simple_yes_no_train_10_ceil_0_floor.txt")
-    val_path = os.path.join(dataset_dir, "simple_yes_no_val_10_ceil_0_floor.txt")
-    test_path = os.path.join(dataset_dir, "simple_yes_no_test_10_ceil_0_floor.txt")
-    
+    train_path = os.path.join(dataset_dir, "simple_yes_no_train_05_ceil_0_floor.txt")
+    val_path = os.path.join(dataset_dir, "simple_yes_no_val_05_ceil_0_floor.txt")
+    test_path = os.path.join(dataset_dir, "simple_yes_no_test_05_ceil_0_floor.txt")
+
     attributes = load_attributes(dataset_dir)  
 
     qa_train = load_simple_yes_no_qa_pairs_helper(train_path, attributes)
