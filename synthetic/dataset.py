@@ -57,7 +57,7 @@ class SyntheticDataset(data.Dataset):
         self.sentence_size = num_attributes
         self.memory_size = num_clues_per_species
 
-        pdb.set_trace()
+        # pdb.set_trace()
         self.species_clues = torch.LongTensor(species_clues)
         self.question_species = torch.LongTensor(question_species)
         self.questions = torch.LongTensor(questions)

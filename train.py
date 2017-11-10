@@ -10,7 +10,7 @@ from logger import Logger
 import pdb
 
 # Set the logger
-run_name = 'threshold_05_ceil_0_floor'
+run_name = 'synthetic1'
 logger = Logger('./logs/' + run_name)
 
 def parse_config():
@@ -69,7 +69,8 @@ def load_bird_data(batch_size, dataset_dir='/home/shenkev/School/VQA-Memnet/bird
     return train_loader, test_loader, vocabulary_size, caption_length, train_data.word_idx
 
 
-def load_synthetic_data(batch_size, datatset_dir='/home/shenkev/School/VQA-Memnet/synthetic'):
+def load_synthetic_data(batch_size, datatset_dir
+='/home/shenkev/School/VQA-Memnet/synthetic/synthetic_data_100_species_100_attributes_100_clues.pckl'):
 
     train_data = SyntheticDataset(path_to_dataset=datatset_dir, dataset_type='train')
     train_loader = DataLoader(train_data, batch_size=batch_size, num_workers=1, shuffle=True)
@@ -93,8 +94,8 @@ def to_np(x):
     return x.data.cpu().numpy()
 
 
-def load_model(vocabulary_size, text_latent_size, words_in_sentence, word_dict):
-    net = vqa_memnet(vocabulary_size, text_latent_size, words_in_sentence, word_dict)
+def load_model(bin_vec_len, text_latent_size, word_dict):
+    net = vqa_memnet(bin_vec_len, text_latent_size, word_dict)
     if torch.cuda.is_available():
         net.cuda()
     return net
@@ -135,7 +136,9 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
     for epoch in range(epochs):
 
         epoch_loss = 0
-        for i, (captions_species, captions, question_species, question, answer) in enumerate(train_loader):
+        for i, (captions, question_species, question, answer) in enumerate(train_loader):
+            captions = captions.float()
+            question = question.float()
             captions = to_var(captions)
 
             # TODO see if varying number of captions helps training
@@ -170,9 +173,13 @@ def evaluate(net, loader):
     correct = 0.0
     correct_zero = 0.0
     correct_one = 0.0
+    total_zero = 0.0
+    total_one = 0.0
 
     net.eval()
-    for step, (captions_species, captions, question_species, question, answer) in enumerate(loader):
+    for step, (captions, question_species, question, answer) in enumerate(loader):
+        captions = captions.float()
+        question = question.float()
         captions = to_var(captions)
 
         # TODO see if varying number of captions helps training
@@ -192,10 +199,12 @@ def evaluate(net, loader):
         correct += cor_tot.float().sum().data[0]  # really weird, without float() this counter resets to
         correct_zero += (cor_tot.float().sum().data[0] - cor_zero.float().sum().data[0])
         correct_one += cor_zero.float().sum().data[0]
+        total_zero += (answer == 0).sum().data[0]
+        total_one += (answer == 1).sum().data[0]
 
-    acc = correct / len(loader.dataset)
-    acc_zero = correct_zero / (0.5*len(loader.dataset))
-    acc_one = correct_one / (0.5*len(loader.dataset))
+    acc = correct / (total_zero + total_one)
+    acc_zero = correct_zero / total_zero
+    acc_one = correct_one / total_one
 
     return acc, acc_zero, acc_one
 
@@ -210,10 +219,12 @@ if __name__ == "__main__":
 
     weight_path = './Model/vqamemnet.pkl'
     #pdb.set_trace()
-    train_loader, test_loader, vocabulary_size, words_in_sentence, word_idx = load_bird_data(batch_size)
-    word_dict = dict((v, k) for k, v in word_idx.items())
+    # train_loader, test_loader, vocabulary_size, words_in_sentence, word_idx = load_bird_data(batch_size)
+    # word_dict = dict((v, k) for k, v in word_idx.items())
 
-    net = load_model(vocabulary_size, text_latent_size, words_in_sentence, word_dict)
+    train_loader, test_loader, bin_vec_len = load_synthetic_data(batch_size)
+
+    net = load_model(bin_vec_len, text_latent_size, None)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(net.parameters(), lr=learn_rate)
 

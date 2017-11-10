@@ -87,7 +87,7 @@ def mean_pool(x, weights):
 
 class vqa_memnet(nn.Module):
 
-    def __init__(self, vocabulary_size, text_latent_size, words_in_question, word_dict):
+    def __init__(self, bin_vec_len, text_latent_size, word_dict):
         super(vqa_memnet, self).__init__()
 
         self.word_dict = word_dict
@@ -97,16 +97,16 @@ class vqa_memnet(nn.Module):
         # self.temporal_enc1 = Parameter(torch.Tensor(num_of_evidences, text_latent_size))
         # self.temporal_enc2 = Parameter(torch.Tensor(num_of_evidences, text_latent_size))
         # padding_idx=0 is required or else the 0 words (absence of a word) gets mapped to garbage
-        self.evidence_emb = nn.Embedding(vocabulary_size + 1, text_latent_size, padding_idx=0)
-        self.question_emb = nn.Embedding(vocabulary_size + 1, text_latent_size, padding_idx=0)
+        # self.evidence_emb = nn.Embedding(vocabulary_size + 1, text_latent_size, padding_idx=0)
+        # self.question_emb = nn.Embedding(vocabulary_size + 1, text_latent_size, padding_idx=0)
 
         # weight initialization greatly helps convergence
         # self.temporal_enc1.data.normal_(0, 0.1)
         # self.temporal_enc2.data.normal_(0, 0.1)
-        self.evidence_emb.weight.data.normal_(0, 0.1)
-        self.question_emb.weight.data.normal_(0, 0.1)
+        # self.evidence_emb.weight.data.normal_(0, 0.1)
+        # self.question_emb.weight.data.normal_(0, 0.1)
 
-        self.fc1 = nn.Linear(text_latent_size, 2)
+        self.fc1 = nn.Linear(1, 2)
         # self.dropout = nn.Dropout()
         # self.prelu = nn.PReLU()
         # self.fc2 = nn.Linear(20, 2)
@@ -115,44 +115,58 @@ class vqa_memnet(nn.Module):
 
     def forward(self, evidence, question, logger=None, iter=None, answer=None):
 
-        evidence = prune_data(evidence)  # get rid of captions which are all 0s, we're dividing by 0 when normalizing
+        # evidence = prune_data(evidence)  # get rid of captions which are all 0s, we're dividing by 0 when normalizing
 
-        question_emb = embed_question(question, self.question_emb)
-        evidence_feature_emb, evidence_computation_emb = embed_evidence(evidence, self.question_emb, self.evidence_emb)
+        # question_emb = embed_question(question, self.question_emb)
+        # evidence_feature_emb, evidence_computation_emb = embed_evidence(evidence, self.question_emb, self.evidence_emb)
 
         # evidence_feature_emb = evidence_feature_emb + self.temporal_enc1
         # evidence_computation_emb = evidence_computation_emb + self.temporal_enc2
 
-        weights = compute_evidence_weights(evidence_computation_emb, question_emb)
-        weighted_evidence = mean_pool(evidence_feature_emb, weights)
+        # weights = compute_evidence_weights(evidence_computation_emb, question_emb)
+        # weighted_evidence = mean_pool(evidence_feature_emb, weights)
 
         # features = torch.cat((weighted_evidence, question_emb.squeeze(0)), 1)
-        features = weighted_evidence + question_emb.squeeze(0)
+        # features = weighted_evidence + question_emb.squeeze(0)
         # features = weighted_evidence + self.dropout(question_emb.squeeze(0))
 
-        if logger is not None and (iter) % 100 == 0:
-            logger.histo_summary('H_question_emb', to_np(question_emb), iter)
-            logger.histo_summary('H_evidence_computation_emb', to_np(evidence_computation_emb), iter)
-            logger.histo_summary('H_evidence_feature_emb', to_np(evidence_feature_emb), iter)
-            logger.histo_summary('H_max_weights', to_np(torch.max(weights, 1)[0]), iter)
-            logger.histo_summary('H_features', to_np(features), iter)
+        # if logger is not None and (iter) % 100 == 0:
+        #     logger.histo_summary('H_question_emb', to_np(question_emb), iter)
+        #     logger.histo_summary('H_evidence_computation_emb', to_np(evidence_computation_emb), iter)
+        #     logger.histo_summary('H_evidence_feature_emb', to_np(evidence_feature_emb), iter)
+        #     logger.histo_summary('H_max_weights', to_np(torch.max(weights, 1)[0]), iter)
+        #     logger.histo_summary('H_features', to_np(features), iter)
+        #
+        #     randind = random.randint(0, evidence.size(0)-1)
+        #     question_str = [self.word_dict[x] for x in filter_zero(to_np(question[randind]))]
+        #     attended_evidence = []
+        #     for i in range(evidence.size(1)):
+        #         evidence_str = [self.word_dict[x] for x in filter_zero(to_np(evidence[randind, i]))]
+        #         attended_evidence.append((weights.data[randind, i],
+        #                                   subfinder(evidence_str, question_str[1:]) != [],
+        #                                   evidence_str))
+        #     attended_evidence = sorted(attended_evidence, reverse=True)
+        #     print("Question: " + str(question_str) + " Answer: " + str(answer.data[randind]))
+        #     for p in attended_evidence: print p
 
-            randind = random.randint(0, evidence.size(0)-1)
-            question_str = [self.word_dict[x] for x in filter_zero(to_np(question[randind]))]
-            attended_evidence = []
-            for i in range(evidence.size(1)):
-                evidence_str = [self.word_dict[x] for x in filter_zero(to_np(evidence[randind, i]))]
-                attended_evidence.append((weights.data[randind, i],
-                                          subfinder(evidence_str, question_str[1:]) != [],
-                                          evidence_str))
-            attended_evidence = sorted(attended_evidence, reverse=True)
-            print("Question: " + str(question_str) + " Answer: " + str(answer.data[randind]))
-            for p in attended_evidence: print p
-
+        features = forward_bin_vec(evidence, question)
         output = self.fc1(features)
         # output = self.prelu(output)
         # output = self.fc2(output)
         return output
+
+'''
+ Args:
+     evidence: [N * s * d]
+     question: [N * d]
+
+    N: batch size, s: number of clues per specie, d: length of binary vector
+    returns: [N]
+ '''
+def forward_bin_vec(evidence, question):
+    z = evidence.bmm(question.unsqueeze(2)).squeeze(2)
+    z = torch.sum(z, 1).unsqueeze(1)
+    return z
 
 
 def prune_data(evidence):
