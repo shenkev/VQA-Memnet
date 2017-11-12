@@ -6,6 +6,23 @@ from sklearn.model_selection import train_test_split
 
 import pdb
 
+def one_hot(length, index):
+    a = [0] * length
+    a[index] = 1
+    return a
+
+def vectorize_questions(questions_to_vectorize, num_attributes):
+
+    question_species = []
+    questions = []
+    answers = []
+    num_answers = 2
+    for q in questions_to_vectorize:
+        species_id, attribute_id, answer_id = q
+        question_species.append(species_id)
+        questions.append(one_hot(num_attributes, attribute_id))
+        answers.append(one_hot(num_answers, answer_id))
+    return question_species, questions, answers
 
 def generate_synthetic_data(num_species, num_attributes, num_clues_per_species, test_percentage):
     '''
@@ -57,6 +74,22 @@ def generate_synthetic_data(num_species, num_attributes, num_clues_per_species, 
     return species_clues, questions_train, questions_test
 
 
+# def generate_and_or_questions(base_questions, num_questions):
+
+#     # for each species generate a list of the attributes they have ground truth
+
+#     # And Questions
+#     # for each species generate a fixed number of true and false questions
+#     # true questions by selecting a random number of attributes (in some fixed interval)
+#     # false questions by selecting a random number of true + false attributes
+
+#     # Or Questions
+#     # for each species generate a fixed number of true and false
+#     # true questions by selecting a random number of true + false attributes
+#     # false questions by selecting a random number of false attributes
+
+
+
 if __name__ == '__main__':
 
     arg_parser = argparse.ArgumentParser(description="Script to generate synthetic data for VQA-Memnet")
@@ -69,7 +102,6 @@ if __name__ == '__main__':
                             help="number of clues per species")
     arg_parser.add_argument("--test_percentage", type=float, default=0.1,
                             help="percentage of quetsions to use for testing")
-
     args = arg_parser.parse_args()
 
     species_clues, questions_train, questions_test = generate_synthetic_data(num_species=args.num_species,
@@ -77,7 +109,11 @@ if __name__ == '__main__':
                                                        num_clues_per_species=args.num_clues_per_species,
                                                        test_percentage=args.test_percentage)
 
+    question_species_train, questions_train, answers_train = vectorize_questions(questions_train, args.num_attributes)
+    question_species_test, questions_test, answers_test = vectorize_questions(questions_test, args.num_attributes)
 
-    pickle.dump([species_clues, questions_train, questions_test, args.num_species, args.num_attributes, args.num_clues_per_species],
-                 open( "synthetic_data_{}_species_{}_attributes_{}_clues.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
+    pickle.dump([species_clues, question_species_train, questions_train, answers_train, args.num_species, args.num_attributes, args.num_clues_per_species],
+                 open( "synthetic_data_{}_species_{}_attributes_{}_clues_train.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
+    pickle.dump([species_clues, question_species_test, questions_test, answers_test, args.num_species, args.num_attributes, args.num_clues_per_species],
+                 open( "synthetic_data_{}_species_{}_attributes_{}_clues_test.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
 
