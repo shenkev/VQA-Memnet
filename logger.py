@@ -1,7 +1,10 @@
 # Code referenced from https://gist.github.com/gyglim/1f8dfb1b5c82627ae3efcfbbadb9f514
 import tensorflow as tf
 import numpy as np
-import scipy.misc 
+import scipy.misc
+
+from dominate.tags import *
+
 try:
     from StringIO import StringIO  # Python 2.7
 except ImportError:
@@ -69,3 +72,38 @@ class Logger(object):
         summary = tf.Summary(value=[tf.Summary.Value(tag=tag, histo=hist)])
         self.writer.add_summary(summary, step)
         self.writer.flush()
+
+
+def initialize_html_logging(experiment_title, train_loader, net, optimizer, config):
+    # Number of epochs trained
+    # Latent dimension size
+    # Architecture of model (basically whatever we call the model?)
+    # Learning algorithm and rate
+    # Data-set parameters (number of species, attributes, clues)
+
+    _html = html()
+    _head, _body = _html.add(
+        head(
+            title('Experiment: ' + experiment_title),
+            link(rel="stylesheet", href="https:\/\/maxcdn.bootstrapcdn.com\/bootstrap\/3.3.7\/css\/bootstrap.min.css")
+        ),
+        body(
+            h1(experiment_title),
+            table(
+                tr(td('Dataset'), td(str(train_loader.dataset))),
+                tr(td('Num species'), td(train_loader.dataset.species_clues.size(0))),
+                tr(td('Num clues per specie'), td(train_loader.dataset.species_clues.size(1))),
+                tr(td('Num attributes'), td(train_loader.dataset.species_clues.size(2))),
+                tr(td('training epochs'), td(config.epochs)),
+                tr(td('batch size'), td(config.batch_size)),
+                tr(td('learning rate'), td(config.lr)),
+                tr(td('learning algo'), td(str(optimizer))),
+                tr(td('latent dimension size'), td(config.text_latent_size)),
+                tr(td('network'), td(str(net))),
+                cls="table"
+            )
+        )
+    )
+
+    return _html, _body
+
