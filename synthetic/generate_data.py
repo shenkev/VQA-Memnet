@@ -6,25 +6,14 @@ from sklearn.model_selection import train_test_split
 
 import pdb
 
-def one_hot(length, index):
+def binary_vector(length, indicies):
+
     a = [0] * length
-    a[index] = 1
+    for index in indicies:
+        a[index] = 1
     return a
 
-def vectorize_questions(questions_to_vectorize, num_attributes):
-
-    question_species = []
-    questions = []
-    answers = []
-    num_answers = 2
-    for q in questions_to_vectorize:
-        species_id, attribute_id, answer_id = q
-        question_species.append(species_id)
-        questions.append(one_hot(num_attributes, attribute_id))
-        answers.append(one_hot(num_answers, answer_id))
-    return question_species, questions, answers
-
-def generate_synthetic_data(num_species, num_attributes, num_clues_per_species, test_percentage):
+def generate_synthetic_data(num_species, num_attributes, num_clues_per_species):
     '''
     Make synthetic data (species and attibutes are zero indexed)
 
@@ -37,6 +26,8 @@ def generate_synthetic_data(num_species, num_attributes, num_clues_per_species, 
 
     # Constants that might become variables
     proportion_of_species_with_attribute = 0.5
+    proportion_of_clues_with_attribute_low = 0.3
+    proportion_of_clues_with_attribute_high = 0.7
 
     # Initialize clues to all 0s
     species_clues = []
@@ -62,32 +53,104 @@ def generate_synthetic_data(num_species, num_attributes, num_clues_per_species, 
         # Set clues
         for species_id in selected_species:
 
-            proportion_of_clues_with_attribute = random.uniform(0.3, 0.7)
+            proportion_of_clues_with_attribute = random.uniform(proportion_of_clues_with_attribute_low, proportion_of_clues_with_attribute_high)
             selected_clues = set(random.sample(list(range(num_clues_per_species)), int(proportion_of_clues_with_attribute*num_clues_per_species)))
 
             for clue_id in selected_clues:
                 species_clues[species_id][clue_id][attribute_id] = 1
+    
+    return species_clues, questions
 
-    # Get train vs test data
-    questions_train, questions_test = train_test_split(questions, test_size = test_percentage)
+def generate_simple_questions(base_questions, num_attributes):
 
-    return species_clues, questions_train, questions_test
+    simple_questions = []
+    for q in base_questions:
+        species_id, attribute_id, answer_id = q
+        simple_questions.append((species_id, binary_vector(num_attributes, [attribute_id]), binary_vector(2, [answer_id])))
 
+    return simple_questions
 
-# def generate_and_or_questions(base_questions, num_questions):
+def generate_and_or_questions(base_questions, num_questions_to_generate, num_species, num_attributes):
 
-#     # for each species generate a list of the attributes they have ground truth
+    # Constants that might become variables
+    question_num_attribute_max = 10
 
-#     # And Questions
-#     # for each species generate a fixed number of true and false questions
-#     # true questions by selecting a random number of attributes (in some fixed interval)
-#     # false questions by selecting a random number of true + false attributes
+    # Get all true attributes for each species
+    species_attributes = {}
+    for question in base_questions:
+        species_id, attribute_id, answer_id = question
+        if species_id not in species_attributes:
+            species_attributes[species_id] = set()
+        if answer_id == 1:
+            species_attributes[species_id].add(attribute_id)
 
-#     # Or Questions
-#     # for each species generate a fixed number of true and false
-#     # true questions by selecting a random number of true + false attributes
-#     # false questions by selecting a random number of false attributes
+    all_attributes = set(range(num_attributes))
 
+    # Generate And questions
+    and_questions_true = []
+    and_questions_false = []
+
+    # Generate half the questions as true
+    # Done by selecting a random number of attributes
+    for _ in xrange(num_questions_to_generate / 2):
+        species_id = random.randint(0, num_species-1)
+        true_attributes = species_attributes[species_id]
+        
+        num_true_attributes_for_question = random.randint(1, min(len(true_attributes), question_num_attribute_max))
+        target_attributes = random.sample(list(true_attributes), num_true_attributes_for_question)
+        
+        and_questions_true.append((species_id, binary_vector(num_attributes, target_attributes), binary_vector(2, [1])))
+
+    # Generate half the questions as false
+    # Done by selecting a random number of true and false attributes (num true can equal 0)
+    for _ in xrange(num_questions_to_generate / 2):
+        species_id = random.randint(0, num_species-1)
+        true_attributes = species_attributes[species_id]
+        false_attributes = all_attributes - true_attributes
+        
+        num_true_attributes_for_question = random.randint(0, min(len(true_attributes), question_num_attribute_max / 2))
+        true_target_attributes = random.sample(list(true_attributes), num_true_attributes_for_question)
+
+        num_false_attributes_for_question = random.randint(1, min(len(false_attributes), question_num_attribute_max / 2))
+        false_target_attributes = random.sample(list(false_attributes), num_false_attributes_for_question)
+       
+        and_questions_false.append((species_id, binary_vector(num_attributes, true_target_attributes + false_target_attributes), binary_vector(2, [0])))
+
+    and_questions = and_questions_true + and_questions_false
+
+    # Generate Or questions
+    or_questions_true = []
+    or_questions_false = []
+
+    # Generate half the questions as true
+    # Done by selecting a random number of true and false attributes (num false can equal 0)
+    for _ in xrange(num_questions_to_generate / 2):
+        species_id = random.randint(0, num_species-1)
+        true_attributes = species_attributes[species_id]
+        false_attributes = all_attributes - true_attributes
+        
+        num_true_attributes_for_question = random.randint(1, min(len(true_attributes), question_num_attribute_max / 2))
+        true_target_attributes = random.sample(list(true_attributes), num_true_attributes_for_question)
+
+        num_false_attributes_for_question = random.randint(0, min(len(false_attributes), question_num_attribute_max / 2))
+        false_target_attributes = random.sample(list(false_attributes), num_false_attributes_for_question)
+       
+        or_questions_true.append((species_id, binary_vector(num_attributes, true_target_attributes + false_target_attributes), binary_vector(2, [1])))
+
+    # Generate half the questions as false
+    # Done by selecting a random number false attributes
+    for _ in xrange(num_questions_to_generate / 2):
+        species_id = random.randint(0, num_species-1)
+        false_attributes = all_attributes - species_attributes[species_id]
+        
+        num_false_attributes_for_question = random.randint(1, min(len(false_attributes), question_num_attribute_max))
+        target_attributes = random.sample(list(false_attributes), num_false_attributes_for_question)
+        
+        or_questions_false.append((species_id, binary_vector(num_attributes, target_attributes), binary_vector(2, [0])))
+
+    or_questions = or_questions_true + or_questions_false
+
+    return and_questions, or_questions, species_attributes
 
 
 if __name__ == '__main__':
@@ -98,22 +161,47 @@ if __name__ == '__main__':
                             help="number of species")
     arg_parser.add_argument("--num_attributes", type=int, default=100,
                             help="number of attributes")
-    arg_parser.add_argument("--num_clues_per_species", type=float, default=100,
+    arg_parser.add_argument("--num_clues_per_species", type=int, default=100,
+                            help="number of clues per species")
+    arg_parser.add_argument("--num_and_or_questions", type=int, default=0,
                             help="number of clues per species")
     arg_parser.add_argument("--test_percentage", type=float, default=0.1,
-                            help="percentage of quetsions to use for testing")
+                            help="percentage of questions to use for testing")
     args = arg_parser.parse_args()
 
-    species_clues, questions_train, questions_test = generate_synthetic_data(num_species=args.num_species,
-                                                       num_attributes=args.num_attributes,
-                                                       num_clues_per_species=args.num_clues_per_species,
-                                                       test_percentage=args.test_percentage)
+    species_clues, base_questions = generate_synthetic_data(num_species=args.num_species,
+                                                            num_attributes=args.num_attributes,
+                                                            num_clues_per_species=args.num_clues_per_species)
+    
+    # Generate Simple Questions
+    simple_questions = generate_simple_questions(base_questions, args.num_attributes)
+    simple_questions_train, simple_questions_test = train_test_split(simple_questions, test_size = args.test_percentage)
 
-    question_species_train, questions_train, answers_train = vectorize_questions(questions_train, args.num_attributes)
-    question_species_test, questions_test, answers_test = vectorize_questions(questions_test, args.num_attributes)
-
-    pickle.dump([species_clues, question_species_train, questions_train, answers_train, args.num_species, args.num_attributes, args.num_clues_per_species],
+    pickle.dump([species_clues, simple_questions_train, args.num_species, args.num_attributes, args.num_clues_per_species],
                  open( "synthetic_data_{}_species_{}_attributes_{}_clues_train.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
-    pickle.dump([species_clues, question_species_test, questions_test, answers_test, args.num_species, args.num_attributes, args.num_clues_per_species],
+    pickle.dump([species_clues, simple_questions_test, args.num_species, args.num_attributes, args.num_clues_per_species],
                  open( "synthetic_data_{}_species_{}_attributes_{}_clues_test.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
+
+    # Generate And/Or Questions
+    if args.num_and_or_questions > 0:
+        and_questions, or_questions, species_attributes = generate_and_or_questions(base_questions, args.num_and_or_questions, args.num_species, args.num_attributes)
+        and_questions_train, and_questions_test = train_test_split(and_questions, test_size = args.test_percentage)
+        or_questions_train, or_questions_test = train_test_split(or_questions, test_size = args.test_percentage)
+
+        #pdb.set_trace()
+       
+        pickle.dump([species_clues, and_questions_train, args.num_species, args.num_attributes, args.num_clues_per_species],
+                     open( "synthetic_data_{}_species_{}_attributes_{}_clues_and_train.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
+        pickle.dump([species_clues, and_questions_test, args.num_species, args.num_attributes, args.num_clues_per_species],
+                     open( "synthetic_data_{}_species_{}_attributes_{}_clues_and_test.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
+
+        pickle.dump([species_clues, or_questions_train, args.num_species, args.num_attributes, args.num_clues_per_species],
+                     open( "synthetic_data_{}_species_{}_attributes_{}_clues_or_train.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
+        pickle.dump([species_clues, or_questions_test, args.num_species, args.num_attributes, args.num_clues_per_species],
+                     open( "synthetic_data_{}_species_{}_attributes_{}_clues_or_test.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
+
+
+
+
+
 

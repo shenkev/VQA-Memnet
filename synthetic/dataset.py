@@ -18,8 +18,9 @@ class SyntheticDataset(data.Dataset):
             answer: list of [0, 1] = Yes or [1, 0] = No
         '''
 
-        species_clues, question_species, questions, answers, num_species, num_attributes, num_clues_per_species = pickle.load(
+        species_clues, question_tuples, num_species, num_attributes, num_clues_per_species = pickle.load(
         open(path_to_dataset, "rb"))
+        question_species, questions, answers = map(list, zip(*question_tuples))
 
         self.sentence_size = num_attributes
         self.memory_size = num_clues_per_species
