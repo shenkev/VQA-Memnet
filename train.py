@@ -6,16 +6,15 @@ from model import vqa_memnet
 from torch.utils.data import DataLoader
 from birds.dataset import birdCaptionSimpleYesNoDataset
 from synthetic.dataset import SyntheticDataset
-from logger import Logger
-from html import HTML
-import os
+from logger import Logger, initialize_html_logging
+from dominate.tags import *
 
 import pdb
 
 # Set the logger
 run_name = 'synthetic1'
 logger = Logger('./logs/' + run_name)
-htm = HTML('html', 'Experiment')
+experiment_title = 'Binary + Add the Question + No normalize attention + 100S/100A/100C'
 
 def parse_config():
     parser = argparse.ArgumentParser()
@@ -135,8 +134,15 @@ def gradient_noise_and_clip(parameters, noise_stddev=1e-3, max_clip=40.0):
         p.grad.data.add_(noise)
 
 
-def train(epochs, train_loader, test_loader, net, optimizer, criterion):
+def train(epochs, train_loader, test_loader, net, optimizer, criterion, _body):
     total_step = 0
+    # logging for html file
+    _table = _body.add(table(
+        tr(th('Step'), th('Loss'), th('Train Accuracy (total)'), th('Train Accuracy (0 answers)'),
+           th('Train Accuracy (1 answers)'), th('Test Accuracy (total)'), th('Test Accuracy (0 answers)'),
+           th('Test Accuracy (1 answers)')),
+        cls="table"
+    ))
     for epoch in range(epochs):
 
         epoch_loss = 0
@@ -163,8 +169,8 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion):
                 print(total_step, batch_loss, train_acc, test_acc)
                 tensorboard_logging(batch_loss, train_acc[0], test_acc[0], net, total_step)
 
-                htm.p("Step: {}, Loss: {}, Train_Accuracy[total, 0's, 1's]: {}, Test Accuracy: {}"
-                         .format(total_step, batch_loss, train_acc, test_acc))
+                _table.add(tr(td(total_step), td(batch_loss), td(train_acc[0]), td(train_acc[1]), td(train_acc[2]),
+                              td(test_acc[0]), td(test_acc[1]), td(test_acc[2])))
 
                 net.train()
 
@@ -235,8 +241,10 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(net.parameters(), lr=learn_rate)
 
-    train(epochs, train_loader, test_loader, net, optimizer, criterion)
-    html_file = open("./html/{}.html".format(run_name), "w")
-    html_file.write(str(htm))
-    html_file.close()
+    _html, _body = initialize_html_logging(experiment_title, train_loader, net, optimizer, config)
+
+    train(epochs, train_loader, test_loader, net, optimizer, criterion, _body)
+
+    with open("./html/{}.html".format(run_name), "w") as f:
+        f.write(_html.render())
 
