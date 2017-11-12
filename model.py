@@ -43,7 +43,7 @@ class vqa_memnet(nn.Module):
             question_num = question_num.data[0]
             np.set_printoptions(formatter={'float': lambda x: "{0:0.6f}".format(x)})
 
-            _table = table(tr(th('Attention weight'), th('Clue contains attribute'), th('Weighted clue')))
+            _table = table(tr(th('Clue #'), th('Attention weight'), th('Clue contains attribute'), th('Weighted clue')))
             # print("Attention at iteration {}".format(iter))
             # print("Question attribute number: {}".format(question_num))
             for i in range(evidence.size(1)):
@@ -52,7 +52,7 @@ class vqa_memnet(nn.Module):
                 weighted_clue = to_np((evidence * weights.unsqueeze(2))[randind, i])
 
                 # print (att_weight, clue_has_att, weighted_clue)
-                _table.add(tr(td("{0:.4f}".format(att_weight)), td(clue_has_att), td(str(weighted_clue))))
+                _table.add(tr(td(i), td("{0:.4f}".format(att_weight)), td(clue_has_att), td(str(weighted_clue))))
 
             _body.add(
                 div(h2("Attention at iteration {}".format(iter)),
