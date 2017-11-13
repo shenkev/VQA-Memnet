@@ -14,9 +14,8 @@ import pdb
 
 # Set the logger
 folder_name = 'binary_add_2fclayers'
-run_name = '100clues_per_species'
+run_name = '100clues_per_species_noquestion'
 logger = Logger('./logs/' + folder_name + "__" + run_name)
-experiment_title = 'Binary + Add the Question + No normalize attention + 100S/100A/100C'
 
 def parse_config():
     parser = argparse.ArgumentParser()
@@ -233,7 +232,7 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(net.parameters(), lr=learn_rate)
 
-    _html, _body = initialize_html_logging(experiment_title, train_loader, net, optimizer, config)
+    _html, _body = initialize_html_logging(train_loader, net, optimizer, config)
 
     train(epochs, train_loader, test_loader, net, optimizer, criterion, _body)
 

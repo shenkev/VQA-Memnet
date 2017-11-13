@@ -74,12 +74,16 @@ class Logger(object):
         self.writer.flush()
 
 
-def initialize_html_logging(experiment_title, train_loader, net, optimizer, config):
+def initialize_html_logging(train_loader, net, optimizer, config):
     # Number of epochs trained
     # Latent dimension size
     # Architecture of model (basically whatever we call the model?)
     # Learning algorithm and rate
     # Data-set parameters (number of species, attributes, clues)
+
+    experiment_title = 'Binary + {}S/{}A/{}C'.format(train_loader.dataset.species_clues.size(0),
+                                                     train_loader.dataset.species_clues.size(2),
+                                                     train_loader.dataset.species_clues.size(1))
 
     _html = html()
     _head, _body = _html.add(
