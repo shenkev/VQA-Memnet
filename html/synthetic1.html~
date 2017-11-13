@@ -1,0 +1,9 @@
+<html>
+Experiment
+<p>Step: 0, Loss: 0.651061713696, Train_Accuracy[total, 0's, 1's]: (0.5042222222222222, 0.0, 1.0), Test Accuracy: (0.462, 0.0, 1.0)</p>
+<p>Step: 100, Loss: 0.576809763908, Train_Accuracy[total, 0's, 1's]: (0.5042222222222222, 0.0, 1.0), Test Accuracy: (0.462, 0.0, 1.0)</p>
+<p>Step: 200, Loss: 0.402004003525, Train_Accuracy[total, 0's, 1's]: (0.5042222222222222, 0.0, 1.0), Test Accuracy: (0.462, 0.0, 1.0)</p>
+<p>Step: 300, Loss: 0.261541336775, Train_Accuracy[total, 0's, 1's]: (0.5042222222222222, 0.0, 1.0), Test Accuracy: (0.462, 0.0, 1.0)</p>
+<p>Step: 400, Loss: 0.357198029757, Train_Accuracy[total, 0's, 1's]: (1.0, 1.0, 1.0), Test Accuracy: (1.0, 1.0, 1.0)</p>
+<p>Step: 500, Loss: 0.297286331654, Train_Accuracy[total, 0's, 1's]: (1.0, 1.0, 1.0), Test Accuracy: (1.0, 1.0, 1.0)</p>
+</html>

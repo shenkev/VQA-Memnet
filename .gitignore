@@ -7,7 +7,6 @@
 /encoder/
 /birds/image_attribute_labels.txt
 /logs/
-/html/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

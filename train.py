@@ -12,19 +12,23 @@ from dominate.tags import *
 import pdb
 
 # Set the logger
-run_name = 'synthetic1'
+run_name = 'binary_3clues_per_species'
 logger = Logger('./logs/' + run_name)
 experiment_title = 'Binary + Add the Question + No normalize attention + 100S/100A/100C'
 
 def parse_config():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_dir", type=str, default="bAbI/data/tasks_1-20_v1-2/en/",
+    parser.add_argument("--train_file", type=str,
+                        default="synthetic_data_100_species_100_attributes_3_clues_train.pckl")
+    parser.add_argument("--test_file", type=str,
+                        default="synthetic_data_100_species_100_attributes_3_clues_test.pckl")
+    parser.add_argument("--dataset_dir", type=str, default="/home/shenkev/School/VQA-Memnet/synthetic/",
                         help='the path to the directory of the data')
     parser.add_argument("--batch_size", type=int, default=32,
                         help='the batch size for each training iteration using a variant of stochastic gradient descent')
     parser.add_argument("--text_latent_size", type=int, default=50,
                         help='the size of text embedding for question and evidence')
-    parser.add_argument("--epochs", type=int, default=2,
+    parser.add_argument("--epochs", type=int, default=15,
                         help='the number of epochs to train for')
     parser.add_argument("--lr", type=float, default=0.001,
                         help='the starting learning rate for the optimizer')
@@ -71,9 +75,9 @@ def load_bird_data(batch_size, dataset_dir='/home/shenkev/School/VQA-Memnet/bird
     return train_loader, test_loader, vocabulary_size, caption_length, train_data.word_idx
 
 
-def load_synthetic_data(batch_size,
-train_dir='/home/shenkev/School/VQA-Memnet/synthetic/synthetic_data_100_species_100_attributes_100_clues_train.pckl',
-test_dir='/home/shenkev/School/VQA-Memnet/synthetic/synthetic_data_100_species_100_attributes_100_clues_test.pckl'):
+def load_synthetic_data(batch_size, config):
+    train_dir = config.dataset_dir + config.train_file
+    test_dir = config.dataset_dir + config.test_file
 
     train_data = SyntheticDataset(path_to_dataset=train_dir)
     train_loader = DataLoader(train_data, batch_size=batch_size, num_workers=1, shuffle=True)
@@ -221,7 +225,7 @@ if __name__ == "__main__":
     weight_path = './Model/vqamemnet.pkl'
     #pdb.set_trace()
 
-    train_loader, test_loader, bin_vec_len = load_synthetic_data(batch_size)
+    train_loader, test_loader, bin_vec_len = load_synthetic_data(batch_size, config)
 
     net = load_model(bin_vec_len, text_latent_size, attention_temperature)
     criterion = nn.CrossEntropyLoss()
