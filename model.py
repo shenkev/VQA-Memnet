@@ -41,18 +41,20 @@ class vqa_memnet(nn.Module):
             randind = random.randint(0, evidence.size(0)-1)
             _, question_num = torch.max(question[randind], 0)
             question_num = question_num.data[0]
-            np.set_printoptions(formatter={'float': lambda x: "{0:0.6f}".format(x)})
 
-            _table = table(tr(th('Clue #'), th('Attention weight'), th('Clue contains attribute'), th('Weighted clue')))
-            # print("Attention at iteration {}".format(iter))
-            # print("Question attribute number: {}".format(question_num))
+            _table = table(tr(th('Clue #'), th('Attention weight'),
+                              th('Clue contains attribute'), th('Clue attribute numbers')))
+            print_out = []
             for i in range(evidence.size(1)):
                 att_weight = weights[randind, i].data[0]
                 clue_has_att = abs(evidence[randind, i, question_num].data[0] - 1.0) <= 0.001
-                weighted_clue = to_np((evidence * weights.unsqueeze(2))[randind, i])
+                clue_atts = np.where(to_np(evidence[randind, i]) == 1)[0]
 
-                # print (att_weight, clue_has_att, weighted_clue)
-                _table.add(tr(td(i), td("{0:.4f}".format(att_weight)), td(clue_has_att), td(str(weighted_clue))))
+                print_out.append((att_weight, i+1, clue_has_att, clue_atts))
+
+            print_out = sorted(print_out, reverse=True)
+            for p in print_out:
+                _table.add(tr(td(p[1]), td("{0:.4f}".format(p[0])), td(p[2]), td(', '.join(['%d' % n for n in p[3]]))))
 
             _body.add(
                 div(h2("Attention at iteration {}".format(iter)),
