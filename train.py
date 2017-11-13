@@ -14,15 +14,15 @@ import pdb
 
 # Set the logger
 folder_name = 'binary_add_2fclayers'
-run_name = '100clues_per_species_noquestion'
+run_name = '3clues_per_species_triplehiddenunits'
 logger = Logger('./logs/' + folder_name + "__" + run_name)
 
 def parse_config():
     parser = argparse.ArgumentParser()
     parser.add_argument("--train_file", type=str,
-                        default="synthetic_data_100_species_100_attributes_100_clues_train.pckl")
+                        default="synthetic_data_100_species_100_attributes_3_clues_train.pckl")
     parser.add_argument("--test_file", type=str,
-                        default="synthetic_data_100_species_100_attributes_100_clues_test.pckl")
+                        default="synthetic_data_100_species_100_attributes_3_clues_test.pckl")
     parser.add_argument("--dataset_dir", type=str, default="/home/shenkev/School/VQA-Memnet/synthetic/",
                         help='the path to the directory of the data')
     parser.add_argument("--batch_size", type=int, default=32,
