@@ -41,6 +41,7 @@ class vqa_memnet(nn.Module):
             randind = random.randint(0, evidence.size(0)-1)
             _, question_num = torch.max(question[randind], 0)
             question_num = question_num.data[0]
+            np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 
             _table = table(tr(th('Clue #'), th('Attention weight'),
                               th('Clue contains attribute'), th('Clue attribute numbers')))
@@ -53,6 +54,7 @@ class vqa_memnet(nn.Module):
                 print_out.append((att_weight, i+1, clue_has_att, clue_atts))
 
             print_out = sorted(print_out, reverse=True)
+            _table.add(tr(td("Final feature to FC: " + str(to_np(features[randind])), colspan="4")))
             for p in print_out:
                 _table.add(tr(td(p[1]), td("{0:.4f}".format(p[0])), td(p[2]), td(', '.join(['%d' % n for n in p[3]]))))
 
