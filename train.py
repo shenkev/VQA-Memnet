@@ -8,20 +8,22 @@ from birds.dataset import birdCaptionSimpleYesNoDataset
 from synthetic.dataset import SyntheticDataset
 from logger import Logger, initialize_html_logging
 from dominate.tags import *
+import os
 
 import pdb
 
 # Set the logger
-run_name = 'binary_3clues_per_species'
-logger = Logger('./logs/' + run_name)
+folder_name = 'binary_add_2fclayers'
+run_name = '100clues_per_species'
+logger = Logger('./logs/' + folder_name + "__" + run_name)
 experiment_title = 'Binary + Add the Question + No normalize attention + 100S/100A/100C'
 
 def parse_config():
     parser = argparse.ArgumentParser()
     parser.add_argument("--train_file", type=str,
-                        default="synthetic_data_100_species_100_attributes_3_clues_train.pckl")
+                        default="synthetic_data_100_species_100_attributes_100_clues_train.pckl")
     parser.add_argument("--test_file", type=str,
-                        default="synthetic_data_100_species_100_attributes_3_clues_test.pckl")
+                        default="synthetic_data_100_species_100_attributes_100_clues_test.pckl")
     parser.add_argument("--dataset_dir", type=str, default="/home/shenkev/School/VQA-Memnet/synthetic/",
                         help='the path to the directory of the data')
     parser.add_argument("--batch_size", type=int, default=32,
@@ -235,6 +237,9 @@ if __name__ == "__main__":
 
     train(epochs, train_loader, test_loader, net, optimizer, criterion, _body)
 
-    with open("./html/{}.html".format(run_name), "w") as f:
+    write_dir = "./html/{}".format(folder_name)
+    if not os.path.exists(write_dir):
+        os.makedirs(write_dir)
+    with open("{}/{}.html".format(write_dir, run_name), "w") as f:
         f.write(_html.render())
 

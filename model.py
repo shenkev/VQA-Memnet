@@ -24,7 +24,9 @@ class vqa_memnet(nn.Module):
 
         self.attention_temperature = attention_temperature
 
-        self.fc1 = nn.Linear(2*bin_vec_len, 2)
+        self.fc1 = nn.Linear(bin_vec_len, 20)
+        self.prelu = nn.PReLU()
+        self.fc2 = nn.Linear(20, 2)
 
         self.softmax = nn.Softmax()
 
@@ -33,9 +35,10 @@ class vqa_memnet(nn.Module):
         weights = self.compute_evidence_weights(evidence, question)
         weighted_evidence = self.mean_pool(evidence, weights)
 
-        features = torch.cat((weighted_evidence, question), 1)
-        # features = weighted_evidence + question
+        # features = torch.cat((weighted_evidence, question), 1)
+        features = weighted_evidence + question
 
+        # ========================= Logging ========================= #
         if _body is not None and (iter) % 100 == 0:
 
             randind = random.randint(0, evidence.size(0)-1)
@@ -63,8 +66,11 @@ class vqa_memnet(nn.Module):
                     h3("Question attribute number: {}, answer: {}".format(question_num, answer[randind].data[0])),
                     _table)
             )
+            # ========================= Logging ========================= #
 
         output = self.fc1(features)
+        output = self.prelu(output)
+        output = self.fc2(output)
         return output
 
     '''
