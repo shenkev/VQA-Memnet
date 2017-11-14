@@ -31,10 +31,13 @@ def generate_synthetic_data(num_species, num_attributes, num_clues_per_species):
 
     # Initialize clues to all 0s
     species_clues = []
+    species_index_clues = []
     for species_id in range(num_species):
         clues = []
+        species_index_clues.append([])
         for x in range(num_clues_per_species):
             clues.append([0]*num_attributes)
+            species_index_clues[species_id].append([])
         species_clues.append(clues)
 
     # Set questions and clues
@@ -54,12 +57,14 @@ def generate_synthetic_data(num_species, num_attributes, num_clues_per_species):
         for species_id in selected_species:
 
             proportion_of_clues_with_attribute = random.uniform(proportion_of_clues_with_attribute_low, proportion_of_clues_with_attribute_high)
-            selected_clues = set(random.sample(list(range(num_clues_per_species)), int(proportion_of_clues_with_attribute*num_clues_per_species)))
+            selected_clues = set(random.sample(list(range(num_clues_per_species)), max(1, int(round(proportion_of_clues_with_attribute*num_clues_per_species)))))
 
             for clue_id in selected_clues:
                 species_clues[species_id][clue_id][attribute_id] = 1
-    
-    return species_clues, questions
+                species_index_clues[species_id][clue_id].append(attribute_id+1)
+
+    # return the index clues instead of the binary clues
+    return species_index_clues, questions
 
 def generate_simple_questions(base_questions, num_attributes):
 
@@ -153,6 +158,13 @@ def generate_and_or_questions(base_questions, num_questions_to_generate, num_spe
     return and_questions, or_questions, species_attributes
 
 
+def get_index_questions(questions):
+    for k in range(len(questions)):
+        questions[k] = (questions[k][0],
+                        [i+1 for i, j in enumerate(questions[k][1]) if j == 1],
+                        questions[k][2])
+
+
 if __name__ == '__main__':
 
     arg_parser = argparse.ArgumentParser(description="Script to generate synthetic data for VQA-Memnet")
@@ -175,31 +187,33 @@ if __name__ == '__main__':
     
     # Generate Simple Questions
     simple_questions = generate_simple_questions(base_questions, args.num_attributes)
+    # get indices instead of binary questions
+    get_index_questions(simple_questions)
     simple_questions_train, simple_questions_test = train_test_split(simple_questions, test_size = args.test_percentage)
 
     pickle.dump([species_clues, simple_questions_train, args.num_species, args.num_attributes, args.num_clues_per_species],
-                 open( "synthetic_data_{}_species_{}_attributes_{}_clues_train.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
+                 open( "synthetic_index_data_{}_species_{}_attributes_{}_clues_train.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
     pickle.dump([species_clues, simple_questions_test, args.num_species, args.num_attributes, args.num_clues_per_species],
-                 open( "synthetic_data_{}_species_{}_attributes_{}_clues_test.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
+                 open( "synthetic_index_data_{}_species_{}_attributes_{}_clues_test.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
 
-    # Generate And/Or Questions
-    if args.num_and_or_questions > 0:
-        and_questions, or_questions, species_attributes = generate_and_or_questions(base_questions, args.num_and_or_questions, args.num_species, args.num_attributes)
-        and_questions_train, and_questions_test = train_test_split(and_questions, test_size = args.test_percentage)
-        or_questions_train, or_questions_test = train_test_split(or_questions, test_size = args.test_percentage)
-
-        #pdb.set_trace()
-       
-        pickle.dump([species_clues, and_questions_train, args.num_species, args.num_attributes, args.num_clues_per_species],
-                     open( "synthetic_data_{}_species_{}_attributes_{}_clues_and_train.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
-        pickle.dump([species_clues, and_questions_test, args.num_species, args.num_attributes, args.num_clues_per_species],
-                     open( "synthetic_data_{}_species_{}_attributes_{}_clues_and_test.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
-
-        pickle.dump([species_clues, or_questions_train, args.num_species, args.num_attributes, args.num_clues_per_species],
-                     open( "synthetic_data_{}_species_{}_attributes_{}_clues_or_train.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
-        pickle.dump([species_clues, or_questions_test, args.num_species, args.num_attributes, args.num_clues_per_species],
-                     open( "synthetic_data_{}_species_{}_attributes_{}_clues_or_test.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
-
+    # # Generate And/Or Questions
+    # if args.num_and_or_questions > 0:
+    #     and_questions, or_questions, species_attributes = generate_and_or_questions(base_questions, args.num_and_or_questions, args.num_species, args.num_attributes)
+    #     and_questions_train, and_questions_test = train_test_split(and_questions, test_size = args.test_percentage)
+    #     or_questions_train, or_questions_test = train_test_split(or_questions, test_size = args.test_percentage)
+    #
+    #     #pdb.set_trace()
+    #
+    #     pickle.dump([species_clues, and_questions_train, args.num_species, args.num_attributes, args.num_clues_per_species],
+    #                  open( "synthetic_data_{}_species_{}_attributes_{}_clues_and_train.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
+    #     pickle.dump([species_clues, and_questions_test, args.num_species, args.num_attributes, args.num_clues_per_species],
+    #                  open( "synthetic_data_{}_species_{}_attributes_{}_clues_and_test.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
+    #
+    #     pickle.dump([species_clues, or_questions_train, args.num_species, args.num_attributes, args.num_clues_per_species],
+    #                  open( "synthetic_data_{}_species_{}_attributes_{}_clues_or_train.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
+    #     pickle.dump([species_clues, or_questions_test, args.num_species, args.num_attributes, args.num_clues_per_species],
+    #                  open( "synthetic_data_{}_species_{}_attributes_{}_clues_or_test.pckl".format(args.num_species, args.num_attributes, args.num_clues_per_species), "wb" ))
+    #
 
 
 

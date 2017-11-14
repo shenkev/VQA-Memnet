@@ -13,30 +13,28 @@ import os
 import pdb
 
 # Set the logger
-folder_name = 'binary_add_2fclayers'
-run_name = '3clues_per_species_triplehiddenunits'
+folder_name = 'embed_add'
+run_name = '100clues_per_species'
 logger = Logger('./logs/' + folder_name + "__" + run_name)
 
 def parse_config():
     parser = argparse.ArgumentParser()
     parser.add_argument("--train_file", type=str,
-                        default="synthetic_data_100_species_100_attributes_3_clues_train.pckl")
+                        default="synthetic_index_data_100_species_100_attributes_100_clues_train.pckl")
     parser.add_argument("--test_file", type=str,
-                        default="synthetic_data_100_species_100_attributes_3_clues_test.pckl")
-    parser.add_argument("--dataset_dir", type=str, default="/home/shenkev/School/VQA-Memnet/synthetic/",
+                        default="synthetic_index_data_100_species_100_attributes_100_clues_test.pckl")
+    parser.add_argument("--dataset_dir", type=str, default="/home/shenkev/School/VQAM-embed/synthetic/",
                         help='the path to the directory of the data')
     parser.add_argument("--batch_size", type=int, default=32,
                         help='the batch size for each training iteration using a variant of stochastic gradient descent')
     parser.add_argument("--text_latent_size", type=int, default=50,
                         help='the size of text embedding for question and evidence')
-    parser.add_argument("--epochs", type=int, default=15,
+    parser.add_argument("--epochs", type=int, default=10,
                         help='the number of epochs to train for')
     parser.add_argument("--lr", type=float, default=0.001,
                         help='the starting learning rate for the optimizer')
     parser.add_argument("--max_clip", type=float, default=40.0,
                         help='the upperbound for the gradient (for gradient explosions)')
-    parser.add_argument("--attention_temperature", type=float, default=4.0,
-                        help='the temperature used in the softmax for attention')
 
     return parser.parse_args()
 
@@ -86,10 +84,12 @@ def load_synthetic_data(batch_size, config):
     test_data = SyntheticDataset(path_to_dataset=test_dir)
     test_loader = DataLoader(test_data, batch_size=batch_size, num_workers=1, shuffle=True)
 
-    bin_vec_len = train_data.sentence_size
-    print("Each image/clue is a binary vector of length {}".format(str(bin_vec_len)))
+    max_att_per_clue = train_data.max_att_per_clue
+    vocab_size = train_data.vocab_size
+    print("Each image/clue has {} attributes.".format(str(max_att_per_clue)))
+    print("There are {} different attributes.".format(str(vocab_size)))
 
-    return train_loader, test_loader, bin_vec_len
+    return train_loader, test_loader, vocab_size, train_data.memory_size
 
 
 def to_var(x):
@@ -102,8 +102,8 @@ def to_np(x):
     return x.data.cpu().numpy()
 
 
-def load_model(bin_vec_len, text_latent_size, attention_temperature):
-    net = vqa_memnet(bin_vec_len, text_latent_size, attention_temperature)
+def load_model(vocab_size, text_latent_size, clues_per_specie):
+    net = vqa_memnet(vocab_size, text_latent_size, clues_per_specie)
     if torch.cuda.is_available():
         net.cuda()
     return net
@@ -152,8 +152,6 @@ def train(epochs, train_loader, test_loader, net, optimizer, criterion, _body):
 
         epoch_loss = 0
         for i, (captions, question_species, question, answer) in enumerate(train_loader):
-            captions = captions.float()
-            question = question.float()
 
             captions = to_var(captions)
             question = to_var(question)
@@ -187,8 +185,6 @@ def evaluate(net, loader):
 
     net.eval()
     for step, (captions, question_species, question, answer) in enumerate(loader):
-        captions = captions.float()
-        question = question.float()
 
         captions = to_var(captions)
         question = to_var(question)
@@ -221,14 +217,13 @@ if __name__ == "__main__":
     batch_size = config.batch_size
     text_latent_size = config.text_latent_size
     epochs = config.epochs
-    attention_temperature = config.attention_temperature
 
     weight_path = './Model/vqamemnet.pkl'
     #pdb.set_trace()
 
-    train_loader, test_loader, bin_vec_len = load_synthetic_data(batch_size, config)
+    train_loader, test_loader, vocab_size, clues_per_specie = load_synthetic_data(batch_size, config)
 
-    net = load_model(bin_vec_len, text_latent_size, attention_temperature)
+    net = load_model(vocab_size, text_latent_size, clues_per_specie)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(net.parameters(), lr=learn_rate)
 
