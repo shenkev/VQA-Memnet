@@ -32,11 +32,9 @@ class vqa_memnet(nn.Module):
         self.question_emb.weight.data.normal_(0, 0.1)
 
         # For maximum attention weight on 1 clue of z, y clues, the temperature is x=ln(z*(y-1)/(1-z))
-        self.attention_temperature = math.log(0.999*(clues_per_specie)/(1-0.999))
+        self.attention_temperature = 20*math.log(0.999*(clues_per_specie)/(1-0.999))
 
         self.fc1 = nn.Linear(text_latent_size, 2)
-        # self.prelu = nn.PReLU()
-        # self.fc2 = nn.Linear(20, 2)
 
         self.softmax = nn.Softmax()
 
@@ -81,6 +79,7 @@ class vqa_memnet(nn.Module):
             )
             # ========================= Logging ========================= #
 
+        # output = torch.matmul(features, self.evidence_emb.weight.transpose(0, 1))
         output = self.fc1(features)
         return output
 
@@ -120,10 +119,11 @@ class vqa_memnet(nn.Module):
      '''
 
     def compute_evidence_weights(self, e, q):
-        e = e*(1/torch.clamp(torch.norm(e, 2, 2), min=0.1)).unsqueeze(2)  # normalize evidence and question sentences
-        q = q*(1/torch.clamp(torch.norm(q, 2, 1), min=0.1)).unsqueeze(1)  # clamp at 0.1 to prevent dividing by 0
+        # e = e*(1/torch.clamp(torch.norm(e, 2, 2), min=0.1)).unsqueeze(2)  # normalize evidence and question sentences
+        # q = q*(1/torch.clamp(torch.norm(q, 2, 1), min=0.1)).unsqueeze(1)  # clamp at 0.1 to prevent dividing by 0
         z = e.bmm(q.unsqueeze(2)).squeeze(2)
         softmax = nn.Softmax()
+        z = softmax(z)
         z = softmax(self.attention_temperature * z)
         return z
 

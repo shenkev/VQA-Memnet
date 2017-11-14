@@ -13,23 +13,23 @@ import os
 import pdb
 
 # Set the logger
-folder_name = 'embed_add'
-run_name = '100clues_per_species'
+folder_name = 'single_clues_embed_add'
+run_name = 'fc'
 logger = Logger('./logs/' + folder_name + "__" + run_name)
 
 def parse_config():
     parser = argparse.ArgumentParser()
     parser.add_argument("--train_file", type=str,
-                        default="synthetic_index_data_100_species_100_attributes_100_clues_train.pckl")
+                        default="synthetic_single_data_100_species_100_attributes_train.pckl")
     parser.add_argument("--test_file", type=str,
-                        default="synthetic_index_data_100_species_100_attributes_100_clues_test.pckl")
+                        default="synthetic_single_data_100_species_100_attributes_test.pckl")
     parser.add_argument("--dataset_dir", type=str, default="/home/shenkev/School/VQAM-embed/synthetic/",
                         help='the path to the directory of the data')
     parser.add_argument("--batch_size", type=int, default=32,
                         help='the batch size for each training iteration using a variant of stochastic gradient descent')
     parser.add_argument("--text_latent_size", type=int, default=50,
                         help='the size of text embedding for question and evidence')
-    parser.add_argument("--epochs", type=int, default=10,
+    parser.add_argument("--epochs", type=int, default=25,
                         help='the number of epochs to train for')
     parser.add_argument("--lr", type=float, default=0.001,
                         help='the starting learning rate for the optimizer')
@@ -84,12 +84,13 @@ def load_synthetic_data(batch_size, config):
     test_data = SyntheticDataset(path_to_dataset=test_dir)
     test_loader = DataLoader(test_data, batch_size=batch_size, num_workers=1, shuffle=True)
 
-    max_att_per_clue = train_data.max_att_per_clue
+    # max_att_per_clue = train_data.max_att_per_clue
+    max_clue_per_specie = train_data.max_clue_per_specie
     vocab_size = train_data.vocab_size
-    print("Each image/clue has {} attributes.".format(str(max_att_per_clue)))
+    print("Each specie has up to {} clues with 1 attribute each.".format(str(max_clue_per_specie)))
     print("There are {} different attributes.".format(str(vocab_size)))
 
-    return train_loader, test_loader, vocab_size, train_data.memory_size
+    return train_loader, test_loader, vocab_size, max_clue_per_specie
 
 
 def to_var(x):
@@ -237,3 +238,7 @@ if __name__ == "__main__":
     with open("{}/{}.html".format(write_dir, run_name), "w") as f:
         f.write(_html.render())
 
+    # sound notification
+    duration = 1  # second
+    freq = 440  # Hz
+    os.system('play --no-show-progress --null --channels 1 synth %s sine %f' % (duration, freq))

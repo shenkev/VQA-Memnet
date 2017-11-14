@@ -22,25 +22,35 @@ class SyntheticDataset(data.Dataset):
         open(path_to_dataset, "rb"))
         question_species, questions, answers = map(list, zip(*question_tuples))
 
-        # pad clues with 0s
-        max_att_per_clue = 0
-        min_att_per_clue = 10000
+        # # pad clues with 0s
+        # max_att_per_clue = 0
+        # min_att_per_clue = 10000
+        # for i in range(len(species_clues)):
+        #     for j in range(len(species_clues[0])):
+        #         max_att_per_clue = max(max_att_per_clue, len(species_clues[i][j]))
+        #         min_att_per_clue = min(min_att_per_clue, len(species_clues[i][j]))
+        #
+        # for i in range(len(species_clues)):
+        #     for j in range(len(species_clues[0])):
+        #         species_clues[i][j].extend([0] * (max_att_per_clue-len(species_clues[i][j])))
+        #
+        # for i in range(len(questions)):
+        #     questions[i].extend([0] * (max_att_per_clue-len(questions[i])))
+        max_clue_per_specie = 0
+        min_clue_per_specie = 10000
         for i in range(len(species_clues)):
-            for j in range(len(species_clues[0])):
-                max_att_per_clue = max(max_att_per_clue, len(species_clues[i][j]))
-                min_att_per_clue = min(min_att_per_clue, len(species_clues[i][j]))
+            max_clue_per_specie = max(max_clue_per_specie, len(species_clues[i]))
+            min_clue_per_specie = min(min_clue_per_specie, len(species_clues[i]))
 
         for i in range(len(species_clues)):
-            for j in range(len(species_clues[0])):
-                species_clues[i][j].extend([0] * (max_att_per_clue-len(species_clues[i][j])))
-
-        for i in range(len(questions)):
-            questions[i].extend([0] * (max_att_per_clue-len(questions[i])))
+            for _ in range(max_clue_per_specie-len(species_clues[i])):
+                species_clues[i].append([0])
 
         self.sentence_size = num_attributes
         self.memory_size = num_clues_per_species
         self.vocab_size = num_attributes
-        self.max_att_per_clue = max_att_per_clue
+        # self.max_att_per_clue = max_att_per_clue
+        self.max_clue_per_specie = max_clue_per_specie
 
         self.species_clues = torch.LongTensor(species_clues)
         self.question_species = torch.LongTensor(question_species)
